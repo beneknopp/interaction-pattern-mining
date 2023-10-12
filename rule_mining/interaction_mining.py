@@ -7,7 +7,7 @@ from mlxtend.frequent_patterns import apriori
 
 from event_log_processing.event_log_manager import EventLogManager
 from rule_mining.interaction_utils import ObjectTypeTransitionMultiplicity
-
+from logics.utils import Disjunction, Conjunction, AtomicExpression
 
 class InteractionMiner:
     '''
@@ -187,11 +187,32 @@ class InteractionMiner:
             reduced_interaction_patterns[activity] = reduced_patterns
         self.reduced_interaction_patterns = reduced_interaction_patterns
 
+    def transform_patterns_to_conditions(self):
+        interaction_conditions = dict()
+        for activity, interaction_patterns in self.reduced_interaction_patterns.items():
+            outer_clauses = list(interaction_patterns["itemsets"].values)
+            outer_condition = Disjunction()
+            if len(outer_clauses) == 0:
+                outer_condition.add_operand(AtomicExpression("True"))
+            for outer_clause in outer_clauses:
+                inner_clauses = list(outer_clause)
+                inner_condition = Conjunction()
+                for inner_clause in inner_clauses:
+                    expression = AtomicExpression(inner_clause)
+                    inner_condition.add_operand(expression)
+                outer_condition.add_operand(inner_condition)
+            interaction_conditions[activity] = outer_condition
+        self.__interaction_conditions = interaction_conditions
+
     def run(self):
         self.extract_ot_trans_multiplicities()
         self.create_interaction_tables()
         self.mine_interaction_patterns()
         self.reduce_interaction_patterns()
+        self.transform_patterns_to_conditions()
+
+    def get_interaction_condition(self, activity):
+        return self.__interaction_conditions[activity]
 
     ###
     # utils

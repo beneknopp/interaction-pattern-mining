@@ -7,8 +7,11 @@ import pickle
 from enum import Enum
 from typing import Dict, Any
 
+
 class EventLogParameters(Enum):
+
     ALLOWED_OBJECT_TYPES = "ALLOWED_OBJECT_TYPES"
+    ALLOWED_ACTIVITIES = "ALLOWED_ACTIVITIES"
 
 
 class EventLogManager:
@@ -43,7 +46,15 @@ class EventLogManager:
             self.ocel2 = pm4py.filter_ocel_object_types(self.ocel2, self.__object_types)
         else:
             self.__object_types = set(self.ocel2.objects["ocel:type"].values)
-        self.__activities = set(self.ocel2.events["ocel:activity"].values)
+        if EventLogParameters.ALLOWED_ACTIVITIES in parameters:
+            self.__activities = parameters[EventLogParameters.ALLOWED_ACTIVITIES]
+            object_type_allowed_activities = {
+                object_type : self.__activities
+                for object_type in self.__object_types
+            }
+            self.ocel2 = pm4py.filter_ocel_object_types_allowed_activities(self.ocel2, object_type_allowed_activities)
+        else:
+            self.__activities = set(self.ocel2.events["ocel:activity"].values)
 
     def get_activities(self):
         return self.__activities
@@ -68,7 +79,10 @@ class EventLogManager:
         object_frame = self.__object_frame
         event_frame = self.__event_frame
         object_change_frame = self.__object_change_frame
-        mintime = min(min(event_frame["ocel:timestamp"].values), min(object_change_frame["ocel:timestamp"].values))
+        mintime = min(event_frame["ocel:timestamp"].values)
+        changetimes = object_change_frame["ocel:timestamp"].values
+        if len(changetimes) > 0:
+            mintime = min(mintime, changetimes)
         max_date_string = "31.12.2099 23:59:59"
         maxtime = pd.Timestamp(max_date_string)
         object_frame["ocel:field"] = pd.NA
