@@ -3,9 +3,11 @@ import os
 RUNTIME_RESOURCE_FOLDER = os.path.abspath('../runtime_resources')
 ALLOWED_EXTENSIONS = {'sqlite'}
 
+
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def make_session():
     session_key_path = os.path.join(os.getcwd(), "rest_utils")
@@ -21,6 +23,7 @@ def make_session():
         os.mkdir(RUNTIME_RESOURCE_FOLDER)
         os.mkdir(session_path)
     return session_key, session_path
+
 
 def get_session_path(session_key):
     return os.path.join(

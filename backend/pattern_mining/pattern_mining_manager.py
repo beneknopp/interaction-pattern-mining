@@ -3,8 +3,14 @@ import pickle
 
 import pandas as pd
 
+from pattern_mining.GROUND_PATTERNS import EAVAL_EQ, O2O_COMPLETE
+from utils.misc_utils import is_numeric_data_type, is_categorical_data_type
+
 
 class PatternMiningManager():
+
+    entropy_attributes_split = False
+    entropy_split_recursion_levels = 4
 
     @classmethod
     def load(cls, name):
@@ -25,13 +31,23 @@ class PatternMiningManager():
             pickle.dump(self, wf)
 
     def initialize(self):
-        self.__load_event_type_object_type_info()
+        self.__preprocess_event_log()
+        self.__create_variable_prefixes()
+        self.__make_default_search_plans()
+
+    def __preprocess_event_log(self):
+        self.__preprocess_attributes()
+        self.__preprocess_relations()
+
+    def __preprocess_attributes(self):
         self.__load_event_type_attribute_info()
         self.__load_object_type_attribute_info()
+        self.__determine_attribute_data_types()
+
+    def __preprocess_relations(self):
+        self.__load_event_type_object_type_info()
         self.__load_event_type_object_relations_info()
         self.__load_event_type_object_to_object_relations_info()
-        self.__load_patterns()
-        self.__create_variable_prefixes()
 
     def __load_event_type_object_type_info(self):
         self.event_types = sorted(list(set(self.ocel.events["ocel:activity"].values)))
@@ -51,7 +67,6 @@ class PatternMiningManager():
             for attribute in event_attributes:
                 if group[attribute].notna().any():
                     self.event_type_attributes[event_type].append(attribute)
-
 
     def __load_object_type_attribute_info(self):
         objects = self.ocel.objects
@@ -74,6 +89,30 @@ class PatternMiningManager():
                     self.object_type_attributes[object_type] = list(set(
                         self.object_type_attributes[object_type] + [attribute]
                     ))
+
+    def __determine_attribute_data_types(self):
+        self.event_attribute_data_types = {}
+        self.object_attribute_data_types = {}
+        for event_type, event_attributes in self.event_type_attributes.items():
+            self.event_attribute_data_types[event_type] = {}
+            for event_attribute in event_attributes:
+                data_type = self.__determine_event_attribute_data_type(event_attribute)
+                self.event_attribute_data_types[event_type][event_attribute] = data_type
+        for object_type, object_attributes in self.object_type_attributes.items():
+            self.object_attribute_data_types[object_type] = {}
+            for object_attribute in object_attributes:
+                data_type = self.__determine_object_attribute_data_type(object_attribute)
+                self.object_attribute_data_types[object_type][object_attribute] = data_type
+
+    def __determine_event_attribute_data_type(self, attribute):
+        return self.ocel.events.dtypes.to_dict()[attribute]
+
+    def __determine_object_attribute_data_type(self, attribute):
+        dtype1 = self.ocel.objects.dtypes.to_dict()[attribute]
+        dtype2 = self.ocel.object_changes.dtypes.to_dict()[attribute]
+        if not dtype1 == dtype2:
+            raise AttributeError()
+        return dtype1
 
     def __load_event_type_object_relations_info(self):
         self.event_type_object_relations = {}
@@ -108,11 +147,40 @@ class PatternMiningManager():
                 object_type_x, object_type_y = key
                 self.event_type_object_to_object_relations[event_type][object_type_x][object_type_y] = qualifiers
 
+    def __make_default_search_plans(self):
+        px = O2O_COMPLETE(r="comprises")
+        px.apply(self.ocel, "place_o-990001", ["o-990001"])
+        if self.entropy_attributes_split:
+            self.__make_entropy_attributes_split()
+        self.search_patters = {}
+        for event_type in self.event_types:
+            self.__make_default_search_plan(event_type)
 
-    def __load_patterns(self):
-        imports = __import__('./PATTERNS.py')
-        return
+    def __make_entropy_attributes_split(self):
+        raise NotImplementedError("Please implement me")
 
+    def __make_default_search_plan(self, event_type):
+        self.search_patters[event_type] = []
+        self.__make_event_attributes_default_patterns(event_type)
+        self.__make_event_type_to_object_default_patterns(event_type)
+        self.__make_event_type_objects_to_objects_default_patterns(event_type)
+
+    def __make_event_attributes_default_patterns(self, event_type):
+        for event_attribute in self.event_type_attributes[event_type]:
+            attribute_data_type = self.event_attribute_data_types[event_type][event_attribute]
+            if is_numeric_data_type(attribute_data_type):
+                pass
+            elif is_categorical_data_type(attribute_data_type):
+                attribute_values = set(self.ocel.events[event_attribute].values)
+                for attribute_value in attribute_values:
+                    pat = EAVAL_EQ(ea=event_attribute, v=attribute_value)
+                    self.search_patters[event_type].append(pat)
+
+    def __make_event_type_to_object_default_patterns(self, event_type):
+        pass
+
+    def __make_event_type_objects_to_objects_default_patterns(self, event_type):
+        pass
 
     def __create_variable_prefixes(self):
         used_prefixes = set()
@@ -122,14 +190,11 @@ class PatternMiningManager():
             prefix = object_type[0]
             i = 1
             # avoid naming conflicts
-            while prefix in used_prefixes or prefix in object_ids:
+            while prefix in used_prefixes and i < len(object_type):
                 prefix += object_type[i]
                 i = i + 1
+            if prefix in object_ids:
+                # TODO: increase safety by also checking for regex r"prefix[0-9]+"
+                raise NameError()
             self.variable_prefixes[object_type] = prefix
             used_prefixes.add(prefix)
-
-    def load_default_patterns(self):
-        o2o_relations = self.ocel.relations
-
-    def load_detected(self):
-        self.patterns = list(set(self.patterns + self.detected_patterns))

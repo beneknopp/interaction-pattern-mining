@@ -3,7 +3,7 @@ import pickle
 
 from pm4py import read_ocel2_sqlite
 
-from rest_utils.helpers import get_session_path
+from utils.misc_utils import get_session_path
 
 
 class EventLogManager:
@@ -36,10 +36,3 @@ class EventLogManager:
         )
         file.save(file_path)
         self.ocel = read_ocel2_sqlite(file_path)
-
-    def initialize_log(self):
-#        self.event_types = sorted(list(set(self.ocel.events["ocel:activity"].values)))
- #       self.object_types = sorted(list(set(self.ocel.objects["ocel:type"].values)))
-  #      e2o = self.ocel.relations
-   #     self.event_types_object_types = e2o.groupby('ocel:activity')['ocel:type'].agg(lambda x: list(set(x))).to_dict()
-        return #"Hallo"

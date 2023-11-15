@@ -1,12 +1,10 @@
-import os
-
-from flask import Flask, flash, request, send_from_directory, current_app
+from flask import Flask, flash, request
 from flask_cors import cross_origin
 
 from dtos.response import Response
 from event_log_management.event_log_manager import EventLogManager
 from pattern_mining.pattern_mining_manager import PatternMiningManager
-from rest_utils.helpers import allowed_file, make_session
+from utils.misc_utils import allowed_file, make_session
 
 app = Flask(__name__)
 
@@ -27,7 +25,6 @@ def upload_ocel():
         session_key, session_path = make_session()
         elmo = EventLogManager(session_key)
         elmo.enter_transmitted_file(file)
-        elmo.initialize_log()
         pamela = PatternMiningManager(session_key, elmo.ocel)
         pamela.initialize()
         return {
@@ -41,6 +38,7 @@ def upload_ocel():
             'variabe_prefixes': pamela.variable_prefixes
         }
     return Response.get(False)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
