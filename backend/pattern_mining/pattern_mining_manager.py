@@ -1,32 +1,78 @@
+from flask import session
+from mlxtend.frequent_patterns import apriori
+from pm4py import OCEL
+
 import os
 import pickle
 
 import pandas as pd
 
-from pattern_mining.GROUND_PATTERNS import EAVAL_EQ, O2O_COMPLETE
-from utils.misc_utils import is_numeric_data_type, is_categorical_data_type
+from pattern_mining.PATTERN_FORMULAS import get_ot_card_formula, get_e2o_exists_formula, get_o2o_exists_exists_formula, \
+    get_o2o_exists_forall_formula, get_o2o_complete_formula
+from pattern_mining.domains import ObjectVariableArgument
+from pattern_mining.pattern_formula import PatternFormula
+from pattern_mining.table_manager import TableManager
+from utils.session_utils import get_session_path
 
 
-class PatternMiningManager():
-
-    entropy_attributes_split = False
-    entropy_split_recursion_levels = 4
+class PatternMiningManager:
 
     @classmethod
-    def load(cls, name):
-        path = os.getcwd()
-        path = os.path.join(path, name + ".pkl")
+    def get_name(cls):
+        session_key = session.get('session_key', None)
+        name = 'pamela_' + str(session_key)
+        return name
+
+    @classmethod
+    def load(cls):
+        name = PatternMiningManager.get_name()
+        session_path = get_session_path()
+        path = os.path.join(session_path, name + ".pkl")
         with open(path, "rb") as rf:
             return pickle.load(rf)
 
-    def __init__(self, session_key, ocel):
-        self.session_key = session_key
-        self.name = "pamela_" + str(session_key)
+    def __init__(self, ocel: OCEL,
+                 entropy_attributes_split=False,
+                 entropy_split_recursion_levels=4,
+                 card_search_min=0.2,
+                 card_search_max=1.0,
+                 exclude_singleton_card_search=True,
+                 min_support=0.05):
+        """
+         This class will conduct the pattern mining.
+
+           entropy_attributes_split (bool)
+                If True, this object makes an entropy-based search for threshold for numerical attributes
+                (at event and object attributes) at which they should be split. The resulting thresholds will be
+                translated into patterns for the default search plan.
+           entropy_split_recursion_levels (int)
+                The maximum number of thresholds to be determined for the numerical attributes.
+           card_search_min (float)
+                The minimal relative frequency of a cardinality of an object type at an event type. If the threshold is
+                not reached, the respective pattern will not be searched for.
+           card_search_max (float)
+                The maximal relative frequency of a cardinality of an object type at an event type. If the threshold is
+                exceeded, the respective pattern will not be searched for.
+           exclude_singleton_card_search (bool)
+                If True, cardinality patterns will not be searched for cardinality 1 (because this would usually be
+                information that is redundant to what is represented in the model layer).
+            min_support (float)
+                The minimal support of a pattern to be returned by the pattern mining procedure.
+         """
+        #self.session_key = session_key
+        self.sessionKey = session.get('session_key', None)
         self.ocel = ocel
+        self.entropyAttributesSplit = entropy_attributes_split
+        self.entropySplitRecursionLevels = entropy_split_recursion_levels
+        self.cardSearchMin = card_search_min
+        self.cardSearchMax = card_search_max
+        self.excludeSingletonCardSearch = exclude_singleton_card_search
+        self.minSupport = min_support
 
     def save(self):
-        path = os.getcwd()
-        path = os.path.join(path, self.name + ".pkl")
+        name = PatternMiningManager.get_name()
+        path = get_session_path()
+        path = os.path.join(path, name + ".pkl")
         with open(path, "wb") as wf:
             pickle.dump(self, wf)
 
@@ -34,6 +80,9 @@ class PatternMiningManager():
         self.__preprocess_event_log()
         self.__create_variable_prefixes()
         self.__make_default_search_plans()
+
+    def get_search_plans(self):
+        return { et: list(id_to_pattern.keys()) for et, id_to_pattern in self.search_patterns.items() }
 
     def __preprocess_event_log(self):
         self.__preprocess_attributes()
@@ -148,39 +197,76 @@ class PatternMiningManager():
                 self.event_type_object_to_object_relations[event_type][object_type_x][object_type_y] = qualifiers
 
     def __make_default_search_plans(self):
-        px = O2O_COMPLETE(r="comprises")
-        px.apply(self.ocel, "place_o-990001", ["o-990001"])
-        if self.entropy_attributes_split:
+        if self.entropyAttributesSplit:
             self.__make_entropy_attributes_split()
-        self.search_patters = {}
+        self.search_patterns = {}
         for event_type in self.event_types:
+            self.search_patterns[event_type] = {}
             self.__make_default_search_plan(event_type)
+
+    def __add_pattern(self, event_type, pattern: PatternFormula):
+        pattern_id = pattern.to_string()
+        self.search_patterns[event_type][pattern_id] = pattern
 
     def __make_entropy_attributes_split(self):
         raise NotImplementedError("Please implement me")
 
     def __make_default_search_plan(self, event_type):
-        self.search_patters[event_type] = []
         self.__make_event_attributes_default_patterns(event_type)
         self.__make_event_type_to_object_default_patterns(event_type)
         self.__make_event_type_objects_to_objects_default_patterns(event_type)
+        self.__make_misc_patterns(event_type)
 
     def __make_event_attributes_default_patterns(self, event_type):
-        for event_attribute in self.event_type_attributes[event_type]:
-            attribute_data_type = self.event_attribute_data_types[event_type][event_attribute]
-            if is_numeric_data_type(attribute_data_type):
-                pass
-            elif is_categorical_data_type(attribute_data_type):
-                attribute_values = set(self.ocel.events[event_attribute].values)
-                for attribute_value in attribute_values:
-                    pat = EAVAL_EQ(ea=event_attribute, v=attribute_value)
-                    self.search_patters[event_type].append(pat)
+        pass
 
     def __make_event_type_to_object_default_patterns(self, event_type):
-        pass
+        for object_type in self.event_types_object_types[event_type]:
+            object_variable_id = self.variable_prefixes[object_type]
+            object_variable_argument = ObjectVariableArgument(object_type, object_variable_id)
+            quals = self.event_type_object_relations[event_type][object_type]
+            for qual in quals:
+                e2o_pattern = get_e2o_exists_formula(object_variable_argument, qual)
+                self.__add_pattern(event_type, e2o_pattern)
 
     def __make_event_type_objects_to_objects_default_patterns(self, event_type):
-        pass
+        for object_type_1, relation_info in self.event_type_object_to_object_relations[event_type].items():
+            object_variable_id_1 = self.variable_prefixes[object_type_1]
+            object_variable_1 = ObjectVariableArgument(object_type_1, object_variable_id_1)
+            for object_type_2, quals in relation_info.items():
+                for qual in quals:
+                    object_variable_id_2 = self.variable_prefixes[object_type_2]
+                    object_variable_2 = ObjectVariableArgument(object_type_2, object_variable_id_2)
+                    o2o_exists_exists_pattern = get_o2o_exists_exists_formula(object_variable_1, qual, object_variable_2)
+                    o2o_exists_forall_pattern = get_o2o_exists_forall_formula(object_variable_1, qual, object_variable_2)
+                    o2o_exists_complete_pattern = get_o2o_complete_formula(object_variable_1, qual, object_type_2)
+                    self.__add_pattern(event_type, o2o_exists_exists_pattern)
+                    self.__add_pattern(event_type, o2o_exists_forall_pattern)
+                    self.__add_pattern(event_type, o2o_exists_complete_pattern)
+
+    def __make_misc_patterns(self, event_type):
+        self.__make_object_type_cardinality_patterns(event_type)
+
+    def __make_object_type_cardinality_patterns(self, event_type):
+        relations = self.ocel.relations
+        event_type_relations = relations[relations["ocel:activity"] == event_type]
+        et_ot_cardinalities = event_type_relations.groupby(['ocel:eid', 'ocel:type'])['ocel:oid'].nunique()
+        ot_cardinalities = et_ot_cardinalities.groupby('ocel:type').value_counts(normalize=True).\
+            unstack(fill_value=0).to_dict(orient='index')
+        filtered_ot_cardinalities = {
+            object_type: {
+                card: relative_frequency
+                for card, relative_frequency in card_relfreqs.items()
+                if self.cardSearchMin <= relative_frequency <= self.cardSearchMax
+                and not (card == 1 and self.excludeSingletonCardSearch)
+            }
+            for object_type, card_relfreqs in ot_cardinalities.items()
+        }
+        for object_type, card_relfreqs in filtered_ot_cardinalities.items():
+            cards = card_relfreqs.keys()
+            for card in cards:
+                card_pattern = get_ot_card_formula(object_type, card)
+                self.__add_pattern(event_type, card_pattern)
 
     def __create_variable_prefixes(self):
         used_prefixes = set()
@@ -198,3 +284,31 @@ class PatternMiningManager():
                 raise NameError()
             self.variable_prefixes[object_type] = prefix
             used_prefixes.add(prefix)
+
+    def search(self):
+        ocel = self.ocel
+        events = ocel.events
+        table_manager = TableManager(ocel, self.event_types, self.object_types)
+        table_manager.create_dataframes()
+        pattern: PatternFormula
+        self.pattern_supports = {}
+        for event_type in self.event_types:
+            print("Mining patterns for '" + event_type + "'")
+            event_type_events = events[events["ocel:activity"] == event_type]
+            base_table = pd.DataFrame(event_type_events['ocel:eid'])
+            patterns = self.search_patterns[event_type].items()
+            n_patterns = len(patterns)
+            i = 1
+            import time
+            for pattern_id, pattern in patterns:
+                print("Creating base table column " + str(i) + "/" + str(n_patterns) + ", for pattern " + pattern_id + "...")
+                start_time = time.time()
+                base_table[pattern_id] = base_table['ocel:eid'].apply(lambda event: pattern.evaluate(table_manager, event))
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                print("elapsed time: " + str(elapsed_time))
+                i = i + 1
+            print("Applying apriori...")
+            pattern_supports = apriori(base_table, min_support=self.minSupport, use_colnames=True)
+            print("Finished mining patterns for event type '" + event_type + "'.")
+            self.pattern_supports[event_type] = pattern_supports
