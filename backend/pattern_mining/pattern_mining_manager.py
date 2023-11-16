@@ -7,8 +7,10 @@ import pickle
 
 import pandas as pd
 
-from pattern_mining.PATTERN_FORMULAS import get_ot_card_formula, get_e2o_exists_formula, get_o2o_exists_exists_formula, \
+from pattern_mining.GROUND_PATTERNS import E2O_R, O2O_R
+from pattern_mining.PATTERN_FORMULAS import get_ot_card_formula, get_e2o_exists_formula, get_o2o_exists_exists_formula,\
     get_o2o_exists_forall_formula, get_o2o_complete_formula
+from pattern_mining.PATTERN_FUNCTIONS import O2o_complete, O2o_r, E2o_r, Ot_card, Oaval_geq
 from pattern_mining.domains import ObjectVariableArgument
 from pattern_mining.pattern_formula import PatternFormula
 from pattern_mining.table_manager import TableManager
@@ -288,22 +290,26 @@ class PatternMiningManager:
     def search(self):
         ocel = self.ocel
         events = ocel.events
-        table_manager = TableManager(ocel, self.event_types, self.object_types)
-        table_manager.create_dataframes()
         pattern: PatternFormula
         self.pattern_supports = {}
-        for event_type in self.event_types:
+        #for event_type in self.event_types:
+        for event_type in ["send package"] + self.event_types:
+            print("Creating analytical tables for '" + event_type + "'")
+            table_manager = TableManager(ocel, event_type, self.event_types_object_types[event_type])
             print("Mining patterns for '" + event_type + "'")
             event_type_events = events[events["ocel:activity"] == event_type]
-            base_table = pd.DataFrame(event_type_events['ocel:eid'])
+            base_table = table_manager.get_event_index()
             patterns = self.search_patterns[event_type].items()
             n_patterns = len(patterns)
             i = 1
+            p = E2o_r("shipper")
+            p.create_function_evaluation_table(table_manager, [ObjectVariableArgument("employees", "emp")])
             import time
             for pattern_id, pattern in patterns:
                 print("Creating base table column " + str(i) + "/" + str(n_patterns) + ", for pattern " + pattern_id + "...")
                 start_time = time.time()
-                base_table[pattern_id] = base_table['ocel:eid'].apply(lambda event: pattern.evaluate(table_manager, event))
+                evaluation = pattern.evaluate(table_manager)
+                base_table = pd.concat([base_table, evaluation], axis=1)
                 end_time = time.time()
                 elapsed_time = end_time - start_time
                 print("elapsed time: " + str(elapsed_time))

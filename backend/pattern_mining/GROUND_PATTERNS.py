@@ -11,11 +11,13 @@ class EAVAL_EQ(GroundPattern):
         self.eventAttribute = event_attribute
         self.value = value
 
-    def __apply(self, table_manager: TableManager, event):
-        events = ocel.events
-        event_row = events[events["ocel:eid"] == event]
-        event_value = event_row[self.eventAttribute]
-        return str(self.value) == str(event_value)
+    def apply(self, table_manager: TableManager):
+        event_index = table_manager.eventIndex
+        event_table = table_manager.eventTable
+        condition = event_table[event_table[self.eventAttribute]] == self.value
+        evaluated = event_table[condition]
+        evaluated = event_index.join(evaluated)
+        return evaluated
 
 
 class EAVAL_LEQ(GroundPattern):
@@ -25,11 +27,13 @@ class EAVAL_LEQ(GroundPattern):
         self.eventAttribute = event_attribute
         self.value = value
 
-    def apply(self, table_manager: TableManager, event):
-        events = ocel.events
-        event_row = events[events["ocel:eid"] == event]
-        event_value = event_row[self.eventAttribute]
-        return float(event_value) <= float(self.value)
+    def apply(self, table_manager: TableManager):
+        event_index = table_manager.eventIndex
+        event_table = table_manager.eventTable
+        condition = event_table[event_table[self.eventAttribute]] <= self.value
+        evaluated = event_table[condition]
+        evaluated = event_index.join(evaluated)
+        return evaluated
 
 
 class EAVAL_GEQ(GroundPattern):
@@ -39,11 +43,13 @@ class EAVAL_GEQ(GroundPattern):
         self.eventAttribute = event_attribute
         self.value = value
 
-    def apply(self, table_manager: TableManager, event):
-        events = ocel.events
-        event_row = events[events["ocel:eid"] == event]
-        event_value = event_row[self.eventAttribute]
-        return float(event_value) >= float(self.value)
+    def apply(self, table_manager: TableManager):
+        event_index = table_manager.eventIndex
+        event_table = table_manager.eventTable
+        condition = event_table[event_table[self.eventAttribute]] >= self.value
+        evaluated = event_table[condition]
+        evaluated = event_index.join(evaluated)
+        return evaluated
 
 
 class OAVAL_EQ(GroundPattern):
@@ -92,16 +98,14 @@ class E2O_R(GroundPattern):
         self.qual = qual
         self.objectId = object_id
 
-    def apply2(self, table_manager: TableManager, event):
-        relations = table_manager.ocel.relations
-        condition1 = relations["ocel:eid"] == event
-        condition2 = relations["ocel:qualifier"] == self.qual
-        condition3 = relations["ocel:oid"] == self.objectId
-        return any(relations[condition1 & condition2 & condition3])
-
-    def apply(self, table_manager: TableManager, event):
-        relations = table_manager.get_e2o_table()
-        return any((relations['ocel:eid'] == event) & (relations['ocel:qualifier'] == self.qual) & (relations['ocel:oid'] == self.objectId))
+    def apply(self, table_manager: TableManager):
+        event_index = table_manager.eventIndex.table
+        event_interactions = table_manager.eventInteractionTable.table
+        condition1 = event_interactions['ocel:qualifier'] == self.qual
+        condition2 = event_interactions['ocel:oid'] == self.objectId
+        event_interaction_matches = event_interactions[condition1 & condition2]
+        evaluated = event_index.index.isin(event_interaction_matches['ocel:eid'])
+        return evaluated
 
 
 class O2O_R(GroundPattern):
@@ -112,21 +116,15 @@ class O2O_R(GroundPattern):
         self.objectId1 = object_id1
         self.objectId2 = object_id2
 
-    def apply(self, table_manager: TableManager, event):
-        o2o = ocel.o2o
-        o2o_condition1 = o2o["ocel:oid"] == self.objectId1
-        o2o_condition2 = o2o["ocel:qualifier"] == self.qual
-        o2o_condition3 = o2o["ocel:oid_2"] == self.objectId2
-        o2o_condition = any(o2o[o2o_condition1 & o2o_condition2 & o2o_condition3])
-        if not o2o_condition:
-            return False
-        e2o = ocel.relations
-        e2o_condition1 = e2o["ocel:eid"] == event
-        e2o_condition2a = e2o["ocel:oid"] == self.objectId1
-        e2o_condition2b = e2o["ocel:oid"] == self.objectId2
-        e2o_condition_a = any(e2o[e2o_condition1 & e2o_condition2a])
-        e2o_condition_b = any(e2o[e2o_condition1 & e2o_condition2b])
-        return e2o_condition_a and e2o_condition_b
+    def apply(self, table_manager: TableManager):
+        event_index = table_manager.eventIndex.table
+        object_interactions = table_manager.objectInteractionTable.table
+        condition1 = object_interactions['ocel:qualifier'] == self.qual
+        condition2 = object_interactions['ocel:oid_x'] == self.objectId1
+        condition3 = object_interactions['ocel:oid_y'] == self.objectId2
+        event_interaction_matches = object_interactions[condition1 & condition2 & condition3]
+        evaluated = event_index.index.isin(event_interaction_matches['ocel:eid'])
+        return evaluated
 
 
 class O2O_COMPLETE(GroundPattern):

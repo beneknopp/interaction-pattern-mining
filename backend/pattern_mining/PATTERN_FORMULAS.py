@@ -15,8 +15,8 @@ class FreePatternFormula(PatternFormula):
         super().__init__()
         self.freePattern = free_pattern
 
-    def evaluate(self, ocel: OCEL, event):
-        self.freePattern.evaluate(ocel, event)
+    def apply(self, table_manager):
+        return self.freePattern.apply(table_manager)
 
     def substitute(self, object_arg: ObjectArgument, object_variable_arg: ObjectVariableArgument):
         self.freePattern.substitute(object_arg, object_variable_arg)
@@ -35,17 +35,19 @@ class Negation(PatternFormula):
         super().__init__()
         self.patternFormula = pattern_formula
 
-    def evaluate(self, table_manager: TableManager, event):
-        return not self.patternFormula.evaluate(table_manager, event)
+    def copy(self):
+        return Negation(self.patternFormula.copy())
 
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         self.patternFormula.substitute(object_argument, object_variable_argument)
 
-    def copy(self):
-        return Negation(self.patternFormula.copy())
+
+    def apply(self, table_manager):
+        raise NotImplementedError()
 
     def to_string(self):
         return "not(" + self.patternFormula.to_string() + ")"
+
 
 
 class Disjunction(PatternFormula):
@@ -57,8 +59,8 @@ class Disjunction(PatternFormula):
         self.patternFormula1 = pattern_formula1
         self.patternFormula2 = pattern_formula2
 
-    def evaluate(self, table_manager: TableManager, event):
-        return self.patternFormula1.evaluate(table_manager, event) or self.patternFormula2.evaluate(table_manager, event)
+    def apply(self, table_manager):
+        return self.patternFormula1.apply(table_manager) | self.patternFormula2.apply(table_manager)
 
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         self.patternFormula1.substitute(object_argument, object_variable_argument)
@@ -80,9 +82,6 @@ class Conjunction(PatternFormula):
         self.patternFormula1 = pattern_formula1
         self.patternFormula2 = pattern_formula2
 
-    def evaluate(self, table_manager: TableManager, event):
-        return self.patternFormula1.evaluate(table_manager, event) and self.patternFormula2.evaluate(table_manager, event)
-
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         self.patternFormula1.substitute(object_argument, object_variable_argument)
         self.patternFormula2.substitute(object_argument, object_variable_argument)
@@ -103,17 +102,14 @@ class ExistentialPattern(PatternFormula):
         self.quantifiedVariable = quantified_variable
         self.patternFormula = pattern_formula
 
-    def evaluate(self, table_manager: TableManager, event):
-        quantified_variable = self.quantifiedVariable
-        object_type = quantified_variable.objectType
-        event_objects_of_type = get_event_objects_of_type(table_manager.ocel, event, object_type)
-        for event_object_id in event_objects_of_type:
-            object_argument = ObjectArgument(object_type, event_object_id)
-            pattern_formula_copy: PatternFormula = self.patternFormula.copy()
-            pattern_formula_copy.substitute(object_argument, quantified_variable)
-            if self.patternFormula.evaluate(table_manager, event):
-                return True
-        return False
+    def apply(self, table_manager: TableManager):
+        variable_id = self.quantifiedVariable.variableId
+        subformula_evaluation_table = self.patternFormula.apply(table_manager)
+        event_id_and_free_variables = [x for x in subformula_evaluation_table.columns
+                                       if x not in [variable_id, "ox:evaluation"]]
+        subformula_evaluation_table.drop(variable_id, axis=1, inplace=True)
+        evaluation_table = subformula_evaluation_table.groupby(event_id_and_free_variables).agg('any').reset_index()
+        return evaluation_table
 
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         assert not equals(object_variable_argument, self.quantifiedVariable)
@@ -134,9 +130,6 @@ class UniversalPattern(PatternFormula):
         super().__init__()
         self.quantifiedVariable = quantified_variable
         self.patternFormula = pattern_formula
-
-    def evaluate(self, ocel: OCEL, event):
-        return not ExistentialPattern(self.quantifiedVariable, Negation(self.patternFormula))
 
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         assert not equals(object_variable_argument, self.quantifiedVariable)
