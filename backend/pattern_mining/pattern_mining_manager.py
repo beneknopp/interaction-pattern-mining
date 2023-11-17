@@ -1,5 +1,6 @@
 from flask import session
-from mlxtend.frequent_patterns import apriori
+from mlxtend.frequent_patterns import apriori, fpmax
+from pandas import DataFrame
 from pm4py import OCEL
 
 import os
@@ -7,14 +8,18 @@ import pickle
 
 import pandas as pd
 
-from pattern_mining.GROUND_PATTERNS import E2O_R, O2O_R
-from pattern_mining.PATTERN_FORMULAS import get_ot_card_formula, get_e2o_exists_formula, get_o2o_exists_exists_formula,\
-    get_o2o_exists_forall_formula, get_o2o_complete_formula
-from pattern_mining.PATTERN_FUNCTIONS import O2o_complete, O2o_r, E2o_r, Ot_card, Oaval_geq
+from utils.misc_utils import is_categorical_data_type
+
+pd.options.mode.chained_assignment = None
+
+from pattern_mining.PATTERN_FORMULAS import get_ot_card_formula, get_e2o_exists_formula, get_o2o_exists_exists_formula, \
+    get_o2o_exists_forall_formula, get_o2o_complete_formula, get_oaval_eq_exists_pattern
 from pattern_mining.domains import ObjectVariableArgument
 from pattern_mining.pattern_formula import PatternFormula
 from pattern_mining.table_manager import TableManager
 from utils.session_utils import get_session_path
+
+evaluation_mode = True
 
 
 class PatternMiningManager:
@@ -36,9 +41,10 @@ class PatternMiningManager:
     def __init__(self, ocel: OCEL,
                  entropy_attributes_split=False,
                  entropy_split_recursion_levels=4,
-                 card_search_min=0.2,
+                 card_search_min=0.5,
                  card_search_max=1.0,
                  exclude_singleton_card_search=True,
+                 categorical_variables_max_labels=10,
                  min_support=0.05):
         """
          This class will conduct the pattern mining.
@@ -69,7 +75,24 @@ class PatternMiningManager:
         self.cardSearchMin = card_search_min
         self.cardSearchMax = card_search_max
         self.excludeSingletonCardSearch = exclude_singleton_card_search
+        self.categoricalVariablesMaxLabels = categorical_variables_max_labels
         self.minSupport = min_support
+
+
+    def save_evaluation(self):
+        path = get_session_path()
+        for event_type in self.event_types:
+            pattern_supports: DataFrame = self.pattern_supports[event_type]
+            path1 = os.path.join(path, "pattern_supports_" + event_type + ".xlsx")
+            pattern_supports.to_excel(path1)
+            min_support_to_maximal_pattern_supports = self.maximal_pattern_supports[event_type]
+            for minimal_support, maximal_pattern_supports in min_support_to_maximal_pattern_supports.items():
+                maximal_pattern_supports: DataFrame
+                path2 = os.path.join(path, "maximal_pattern_supports_" + event_type + "_" + str(minimal_support) + ".xlsx")
+                maximal_pattern_supports.to_excel(path2)
+        eval_path = os.path.join(path, "evaluation.xlsx")
+        eval = pd.DataFrame(self.evaluation_records)
+        eval.to_excel(eval_path)
 
     def save(self):
         name = PatternMiningManager.get_name()
@@ -178,13 +201,16 @@ class PatternMiningManager:
 
     def __load_event_type_object_to_object_relations_info(self):
         self.event_type_object_to_object_relations = {}
-        relations = self.ocel.relations
-        o2o = self.ocel.o2o
-        o2o = o2o.rename(columns={'ocel:qualifier': 'ocel:o2o_qualifier'})
-        df1 = pd.merge(relations, relations, on='ocel:eid')
-        df2 = pd.merge(df1, o2o, left_on=['ocel:oid_x', 'ocel:oid_y'], right_on=['ocel:oid', 'ocel:oid_2'])
-        event_type_groups = df2.groupby('ocel:activity_x')
-        for event_type, group in event_type_groups:
+        self.event_type_object_to_object_multi_relations = {}
+        e2o = self.ocel.relations[:].drop_duplicates()
+        o2o = self.ocel.o2o[:].drop_duplicates()
+        o2o.rename(columns={"ocel:qualifier": "o2o_qualifier"}, inplace=True)
+        for event_type in self.event_types:
+            event_type_e2o = e2o[e2o["ocel:activity"] == event_type]
+            e2o2o = pd.merge(event_type_e2o, o2o, on='ocel:oid')
+            e2o2o2e = pd.merge(e2o2o, event_type_e2o, left_on=["ocel:eid", "ocel:oid_2"], right_on=["ocel:eid", "ocel:oid"])
+            e2o2o2e = e2o2o2e[["ocel:eid", "ocel:oid_x", "ocel:type_x", "o2o_qualifier", "ocel:oid_y", "ocel:type_y"]]
+            e2o2o2e.drop_duplicates(inplace=True)
             self.event_type_object_to_object_relations[event_type] = {
                 object_type_x: {
                     object_type_y: []
@@ -192,11 +218,29 @@ class PatternMiningManager:
                 }
                 for object_type_x in self.object_types
             }
-            subgroups = group.groupby(['ocel:type_x', 'ocel:type_y'])
-            for key, subgroup in subgroups:
-                qualifiers = list(set(subgroup['ocel:o2o_qualifier']))
+            subgroups_existential = e2o2o2e.groupby(['ocel:type_x', 'ocel:type_y'])
+            for key, subgroup in subgroups_existential:
+                qualifiers = list(set(subgroup['o2o_qualifier']))
                 object_type_x, object_type_y = key
                 self.event_type_object_to_object_relations[event_type][object_type_x][object_type_y] = qualifiers
+            # multi-relations between type x and type y: objects of type x can habe multiple relations to objects of type y
+            self.event_type_object_to_object_multi_relations[event_type] = {
+                object_type_x: {
+                    object_type_y: []
+                    for object_type_y in self.object_types
+                }
+                for object_type_x in self.object_types
+            }
+            for object_type_x in self.event_types_object_types[event_type]:
+                for object_type_y in self.event_types_object_types[event_type]:
+                    type_x_filter = e2o2o2e[e2o2o2e["ocel:type_x"] == object_type_x]
+                    type_filter = type_x_filter[type_x_filter["ocel:type_y"] == object_type_y]
+                    qualifiers = set(type_filter["o2o_qualifier"].values)
+                    for qualifier in qualifiers:
+                        qualifier_filter = type_filter[type_filter["o2o_qualifier"] == qualifier]
+                        subgroups = qualifier_filter.groupby(["ocel:eid", "ocel:oid_x"])
+                        if (subgroups.size() > 1).any():
+                            self.event_type_object_to_object_multi_relations[event_type][object_type_x][object_type_y].append(qualifier)
 
     def __make_default_search_plans(self):
         if self.entropyAttributesSplit:
@@ -215,12 +259,26 @@ class PatternMiningManager:
 
     def __make_default_search_plan(self, event_type):
         self.__make_event_attributes_default_patterns(event_type)
+        self.__make_object_attributes_default_patterns(event_type)
         self.__make_event_type_to_object_default_patterns(event_type)
         self.__make_event_type_objects_to_objects_default_patterns(event_type)
         self.__make_misc_patterns(event_type)
 
     def __make_event_attributes_default_patterns(self, event_type):
         pass
+
+    def __make_object_attributes_default_patterns(self, event_type):
+        for object_type in self.event_types_object_types[event_type]:
+            object_variable_id = self.variable_prefixes[object_type]
+            object_variable_argument = ObjectVariableArgument(object_type, object_variable_id)
+            for attribute, dtype in self.object_attribute_data_types[object_type].items():
+                if is_categorical_data_type(dtype):
+                    #TODO: unify, maybe build TableManager already in __init__
+                    labels = set(self.objects[attribute].dropna().values)
+                    labels = labels.union(set(self.ocel.object_changes[attribute].dropna().values))
+                    for label in labels:
+                        oaval_eq_exists_pattern = get_oaval_eq_exists_pattern(object_variable_argument, attribute, label)
+                        self.__add_pattern(event_type, oaval_eq_exists_pattern)
 
     def __make_event_type_to_object_default_patterns(self, event_type):
         for object_type in self.event_types_object_types[event_type]:
@@ -240,9 +298,16 @@ class PatternMiningManager:
                     object_variable_id_2 = self.variable_prefixes[object_type_2]
                     object_variable_2 = ObjectVariableArgument(object_type_2, object_variable_id_2)
                     o2o_exists_exists_pattern = get_o2o_exists_exists_formula(object_variable_1, qual, object_variable_2)
+                    self.__add_pattern(event_type, o2o_exists_exists_pattern)
+        for object_type_1, multi_relation_info in self.event_type_object_to_object_multi_relations[event_type].items():
+            object_variable_id_1 = self.variable_prefixes[object_type_1]
+            object_variable_1 = ObjectVariableArgument(object_type_1, object_variable_id_1)
+            for object_type_2, quals in multi_relation_info.items():
+                for qual in quals:
+                    object_variable_id_2 = self.variable_prefixes[object_type_2]
+                    object_variable_2 = ObjectVariableArgument(object_type_2, object_variable_id_2)
                     o2o_exists_forall_pattern = get_o2o_exists_forall_formula(object_variable_1, qual, object_variable_2)
                     o2o_exists_complete_pattern = get_o2o_complete_formula(object_variable_1, qual, object_type_2)
-                    self.__add_pattern(event_type, o2o_exists_exists_pattern)
                     self.__add_pattern(event_type, o2o_exists_forall_pattern)
                     self.__add_pattern(event_type, o2o_exists_complete_pattern)
 
@@ -288,12 +353,24 @@ class PatternMiningManager:
             used_prefixes.add(prefix)
 
     def search(self):
+        if evaluation_mode:
+            max_itemsets_minimal_supports = [round(100.0*0.05 * (i+1))/ 100.0 for i in range(20)]
+            self.evaluation_records = {
+                "event_type": [],
+                "number_of_bootstrap_formulas": [],
+                "pattern_evaluation_time": [],
+                "itemset_mining_time": [], "number_of_itemsets": [],
+            }
+            for min_support in max_itemsets_minimal_supports:
+                self.evaluation_records["min_support_" + str(min_support) + "_fp_time"] = []
+                self.evaluation_records["min_support_" + str(min_support) + "_number_of_itemsets"] = []
         ocel = self.ocel
         events = ocel.events
         pattern: PatternFormula
         self.pattern_supports = {}
+        self.maximal_pattern_supports = {}
         #for event_type in self.event_types:
-        for event_type in ["send package"] + self.event_types:
+        for event_type in self.event_types:
             print("Creating analytical tables for '" + event_type + "'")
             table_manager = TableManager(ocel, event_type, self.event_types_object_types[event_type])
             print("Mining patterns for '" + event_type + "'")
@@ -302,19 +379,41 @@ class PatternMiningManager:
             patterns = self.search_patterns[event_type].items()
             n_patterns = len(patterns)
             i = 1
-            p = E2o_r("shipper")
-            p.create_function_evaluation_table(table_manager, [ObjectVariableArgument("employees", "emp")])
-            import time
-            for pattern_id, pattern in patterns:
-                print("Creating base table column " + str(i) + "/" + str(n_patterns) + ", for pattern " + pattern_id + "...")
+            if evaluation_mode:
+                import time
+                self.evaluation_records["event_type"].append(event_type)
+                self.evaluation_records["number_of_bootstrap_formulas"].append(len(patterns))
                 start_time = time.time()
+            for pattern_id, pattern in patterns:
                 evaluation = pattern.evaluate(table_manager)
-                base_table = pd.concat([base_table, evaluation], axis=1)
+                base_table.loc[:, pattern_id] = evaluation
+                i = i + 1
+            if evaluation_mode:
                 end_time = time.time()
                 elapsed_time = end_time - start_time
-                print("elapsed time: " + str(elapsed_time))
-                i = i + 1
+                self.evaluation_records["pattern_evaluation_time"].append(elapsed_time)
+            if not evaluation_mode:
+                return
             print("Applying apriori...")
+            start_time = time.time()
             pattern_supports = apriori(base_table, min_support=self.minSupport, use_colnames=True)
-            print("Finished mining patterns for event type '" + event_type + "'.")
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            self.evaluation_records["itemset_mining_time"].append(elapsed_time)
+            self.evaluation_records["number_of_itemsets"].append(len(pattern_supports))
             self.pattern_supports[event_type] = pattern_supports
+            print("Finished mining patterns.")
+            print("Applying fpmax...")
+            self.maximal_pattern_supports[event_type] = {}
+            for min_support in max_itemsets_minimal_supports:
+                start_time = time.time()
+                maximal_pattern_supports = fpmax(base_table, min_support=min_support, use_colnames=True)
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                self.evaluation_records["min_support_" + str(min_support) + "_fp_time"].append(elapsed_time)
+                self.evaluation_records["min_support_" + str(min_support) + "_number_of_itemsets"].append(len(maximal_pattern_supports))
+                self.maximal_pattern_supports[event_type][min_support] = maximal_pattern_supports
+            print("Finished for event type '" + event_type + "'.")
+
+
+

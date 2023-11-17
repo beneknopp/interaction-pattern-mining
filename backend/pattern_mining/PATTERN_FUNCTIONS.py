@@ -252,9 +252,8 @@ class O2o_r(PatternFunction):
         o2o = table_manager.get_o2o(source_object_type)
         o2o_r = o2o[o2o["ocel:qualifier"] == self.qual]
         evaluated = evaluated.merge(o2o_r, left_on=[variable_id1, variable_id2], right_on=["ocel:oid", "ocel:oid_2"], how="left")
-        evaluated = evaluated[[variable_id1, variable_id2, "ocel:qualifier"]]
         evaluated["ox:evaluation"] = evaluated["ocel:qualifier"] == self.qual
-        return evaluated[[variable_id1, variable_id2, "ox:evaluation"]]
+        return evaluated[["ocel:eid", variable_id1, variable_id2, "ox:evaluation"]]
 
     def to_string(self):
         return "o2o_{" + self.qual + "}"

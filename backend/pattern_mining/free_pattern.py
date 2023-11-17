@@ -30,7 +30,7 @@ class FreePattern:
         return [self.arguments[i] for i in range(self.patternFunction.arity)]
 
     def apply(self, table_manager: TableManager):
-        return self.patternFunction.create_function_evaluation_table(table_manager, self.arguments)
+        return self.patternFunction.create_function_evaluation_table(table_manager, self.__get_argument_bindings())
 
     def substitute(self, object_arg: ObjectArgument, object_variable_arg: ObjectVariableArgument):
         for i, arg in self.arguments.items():

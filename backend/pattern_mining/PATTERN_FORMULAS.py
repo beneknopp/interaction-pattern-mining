@@ -41,9 +41,11 @@ class Negation(PatternFormula):
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         self.patternFormula.substitute(object_argument, object_variable_argument)
 
-
     def apply(self, table_manager):
-        raise NotImplementedError()
+        subformula_evaluation_table = self.patternFormula.apply(table_manager)
+        evaluation_table = subformula_evaluation_table[:]
+        evaluation_table["ox:evaluation"] = ~evaluation_table["ox:evaluation"]
+        return evaluation_table
 
     def to_string(self):
         return "not(" + self.patternFormula.to_string() + ")"
@@ -138,6 +140,10 @@ class UniversalPattern(PatternFormula):
     def copy(self):
         return UniversalPattern(self.quantifiedVariable, self.patternFormula.copy())
 
+    def apply(self, table_manager: TableManager):
+        return Negation(ExistentialPattern(self.quantifiedVariable, Negation(self.patternFormula.copy())))\
+            .apply(table_manager)
+
     def to_string(self):
         return "all(" + self.quantifiedVariable.to_string() + "," + self.patternFormula.to_string() + ")"
 
@@ -193,6 +199,21 @@ def get_ot_card_formula(object_type, card):
         FreePattern(
             Ot_card(object_type, card),
             arguments
+        )
+    )
+
+
+def get_oaval_eq_exists_pattern(object_variable: ObjectVariableArgument, attribute: str, value) -> ExistentialPattern:
+    arguments = {
+        0: object_variable
+    }
+    return ExistentialPattern(
+        object_variable,
+        FreePatternFormula(
+            FreePattern(
+                Oaval_eq(attribute, value),
+                arguments
+            )
         )
     )
 

@@ -12,7 +12,7 @@ def create_object_evolutions_table(object_table, event_table, object_change_tabl
     max_date_string = "31.12.2099 23:59:59"
     maxtime = pd.Timestamp(max_date_string)
     object_table["ocel:field"] = pd.NA
-    object_table["ocel:timestamp"] = mintime
+    object_table.loc[:, "ocel:timestamp"] = mintime
     object_evolutions = pd.concat([object_table, object_change_table])
     object_evolutions.reset_index(drop=True, inplace=True)
     object_evolutions["ox:from"] = object_evolutions["ocel:timestamp"]
