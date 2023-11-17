@@ -17,6 +17,9 @@ class PatternFormula:
     def apply(self, table_manager: TableManager) -> DataFrame:
         raise NotImplementedError()
 
+    def get_free_variables(self):
+        raise NotImplementedError()
+
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         raise NotImplementedError()
 
