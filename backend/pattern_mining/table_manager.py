@@ -5,7 +5,8 @@ from pattern_mining.tables.event_table import EventTable
 from pattern_mining.tables.o2o_table import O2OTable
 from pattern_mining.tables.object_interaction_table import ObjectInteractionTable
 
-
+#TODO: get_evaluation_base_table(object_types) that returns a dataframe with columns: event_id and all possible combinations
+# of values for the object types at the respective event
 class TableManager:
 
     def __init__(self, ocel, event_type, object_types):

@@ -9,7 +9,8 @@ from utils.session_utils import allowed_file, make_session
 
 app = Flask(__name__)
 app.secret_key = '8a28ef91377b0cf89b5fdfdb32672036'
-
+#import warnings
+#warnings.filterwarnings("error")
 
 @app.route('/upload-ocel', methods=['GET', 'POST'])
 @cross_origin()

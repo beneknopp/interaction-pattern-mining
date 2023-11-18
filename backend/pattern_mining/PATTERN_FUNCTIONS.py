@@ -181,9 +181,9 @@ class Ot_card(PatternFunction):
         return OT_CARD(self.objectType, self.card)
 
     def create_function_evaluation_table(self, table_manager: TableManager, arguments):
-        evaluated = table_manager.get_event_interaction_table()
-        evaluated = evaluated[evaluated["ocel:type"] == self.objectType]
-        evaluated = evaluated.groupby("ocel:eid")["ocel:oid"].nunique().reset_index(name="card")
+        interaction_table = table_manager.get_event_interaction_table()
+        evaluated = interaction_table.groupby("ocel:eid").apply(lambda group: group[group["ocel:type"] == self.objectType]["ocel:oid"].nunique())\
+            .reset_index(name="card")
         evaluated["ox:evaluation"] = evaluated["card"] == self.card
         return evaluated[["ocel:eid", "ox:evaluation"]]
 
@@ -210,10 +210,11 @@ class E2o_r(PatternFunction):
         arg: ObjectVariableArgument = arguments[0]
         variable_id = arg.variableId
         object_type = arg.objectType
-        evaluated = table_manager.get_event_interaction_table()
-        evaluated = evaluated[evaluated["ocel:type"] == object_type]
-        evaluated["r_counts"] = evaluated["ocel:qualifier"].apply(lambda x: 1 if x == self.qual else 0)
-        evaluated = evaluated.groupby(["ocel:eid","ocel:oid"])["r_counts"].agg(lambda x: (x.sum() > 0)).reset_index(name="ox:evaluation")
+        interaction_table = table_manager.get_event_interaction_table()
+        interaction_table["r_counts"] = interaction_table.apply(
+            lambda row: 1 if row["ocel:qualifier"] == self.qual and row["ocel:type"] == object_type else 0, axis=1)
+        evaluated = interaction_table.groupby(["ocel:eid","ocel:oid"])["r_counts"].agg(
+            lambda x: (x.sum() > 0)).reset_index(name="ox:evaluation")
         evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
         return evaluated[["ocel:eid", variable_id, "ox:evaluation"]]
 
@@ -243,16 +244,21 @@ class O2o_r(PatternFunction):
         variable_id2 = arg2.variableId
         source_object_type = arg1.objectType
         target_object_type = arg2.objectType
+
         source_type_event_objects = table_manager.get_event_objects(source_object_type)
         source_type_event_objects.rename(columns={"ocel:oid": "ocel:oid_1"}, inplace=True)
         target_type_event_objects = table_manager.get_event_objects(target_object_type)
         target_type_event_objects.rename(columns={"ocel:oid": "ocel:oid_2"}, inplace=True)
+
         evaluated = source_type_event_objects.merge(target_type_event_objects, on="ocel:eid")
         evaluated.rename(columns={"ocel:oid_1": variable_id1, "ocel:oid_2": variable_id2}, inplace=True)
+        evaluated.drop_duplicates(inplace=True)
+
         o2o = table_manager.get_o2o(source_object_type)
-        o2o_r = o2o[o2o["ocel:qualifier"] == self.qual]
-        evaluated = evaluated.merge(o2o_r, left_on=[variable_id1, variable_id2], right_on=["ocel:oid", "ocel:oid_2"], how="left")
-        evaluated["ox:evaluation"] = evaluated["ocel:qualifier"] == self.qual
+        evaluated = evaluated.merge(o2o, left_on=[variable_id1, variable_id2], right_on=["ocel:oid", "ocel:oid_2"], how="left")
+        evaluated["r_flag"] = evaluated["ocel:qualifier"] == self.qual
+        evaluated = evaluated.groupby(["ocel:eid", variable_id1, variable_id2])['r_flag'].sum().reset_index(name="r_flags")
+        evaluated["ox:evaluation"] = evaluated["r_flags"] > 0
         return evaluated[["ocel:eid", variable_id1, variable_id2, "ox:evaluation"]]
 
     def to_string(self):

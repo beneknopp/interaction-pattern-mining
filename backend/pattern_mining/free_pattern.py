@@ -30,12 +30,12 @@ class FreePattern:
 
     def get_free_variables(self):
         x: ObjectVariableArgument
-        return set(x.variableId for x in self.arguments)
+        return set(x for x in self.arguments if not isinstance(x, ObjectArgument))
 
     def substitute(self, object_arg: ObjectArgument, object_variable_arg: ObjectVariableArgument):
-        for i, arg in self.arguments.items():
+        for arg in self.arguments:
             if equals(arg, object_variable_arg):
-                self.arguments[i] = object_arg
+                self.arguments = object_arg
 
     def copy(self):
         return FreePattern(self.patternFunction, self.arguments)

@@ -10,9 +10,13 @@ class PatternFormula:
         pass
 
     def evaluate(self, table_manager):
-        evaluation_table = self.apply(table_manager)
-        evaluation = evaluation_table.set_index('ocel:eid')['ox:evaluation'].squeeze()
-        return evaluation
+        event_index = table_manager.get_event_index()
+        event_index["ox:evaluation"] = False
+        # apply might not return an outcome for every index (if the object domain is empty)
+        evaluation = self.apply(table_manager)
+        evaluation = evaluation.set_index('ocel:eid')['ox:evaluation'].squeeze()
+        event_index.update(evaluation)
+        return event_index
 
     def apply(self, table_manager: TableManager) -> DataFrame:
         raise NotImplementedError()

@@ -110,11 +110,13 @@ class Conjunction(PatternFormula):
         evaluation_table2 = self.patternFormula2.apply(table_manager)
         free_variables1 = self.patternFormula1.get_free_variables()
         free_variables2 = self.patternFormula2.get_free_variables()
-        joint_variables = free_variables1.intersection(free_variables2)
+        free_variables1_ids = {x.variableId for x in free_variables1}
+        free_variables2_ids = {y.variableId for y in free_variables2}
+        joint_variables_ids = free_variables1_ids.intersection(free_variables2_ids)
         evaluation_table = pd.merge(
             evaluation_table1, evaluation_table2,
             how="inner",
-            on=["ocel:eid"] + list(joint_variables)
+            on=["ocel:eid"] + list(joint_variables_ids)
         )
         evaluation_table["ox:evaluation"] = evaluation_table["ox:evaluation_x"] & evaluation_table["ox:evaluation_y"]
         evaluation_table.drop(columns=["ox:evaluation_x", "ox:evaluation_y"], inplace=True)
@@ -153,7 +155,7 @@ class ExistentialPattern(PatternFormula):
         return evaluation_table
 
     def get_free_variables(self):
-        return self.patternFormula.get_free_variables()
+        return set(x for x in self.patternFormula.get_free_variables() if not equals(x, self.quantifiedVariable))
 
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         assert not equals(object_variable_argument, self.quantifiedVariable)
@@ -176,7 +178,7 @@ class UniversalPattern(PatternFormula):
         self.patternFormula = pattern_formula
 
     def get_free_variables(self):
-        return self.patternFormula.get_free_variables()
+        return set(x for x in self.patternFormula.get_free_variables() if not equals(x, self.quantifiedVariable))
 
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         assert not equals(object_variable_argument, self.quantifiedVariable)
