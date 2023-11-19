@@ -1,7 +1,8 @@
 import pandas as pd
 from pm4py import OCEL
 
-from pattern_mining.PATTERN_FUNCTIONS import Oaval_eq, Oaval_leq, Oaval_geq, Ot_card, O2o_r, O2o_complete, E2o_r
+from pattern_mining.PATTERN_FUNCTIONS import Oaval_eq, Oaval_leq, Oaval_geq, Ot_card, O2o_r, O2o_complete, E2o_r, \
+    Eaval_eq
 from pattern_mining.domains import ObjectVariableArgument, ObjectArgument, equals
 from pattern_mining.free_pattern import FreePattern
 from pattern_mining.pattern_formula import PatternFormula
@@ -243,6 +244,14 @@ def get_ot_card_formula(object_type, card):
         )
     )
 
+def get_eaval_eq_exists_pattern(attribute: str, value) -> ExistentialPattern:
+    arguments = []
+    return FreePatternFormula(
+            FreePattern(
+                Eaval_eq(attribute, value),
+                arguments
+            )
+        )
 
 def get_oaval_eq_exists_pattern(object_variable: ObjectVariableArgument, attribute: str, value) -> ExistentialPattern:
     arguments = [object_variable]

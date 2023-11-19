@@ -5,7 +5,7 @@ from dtos.response import Response
 from event_log_management.event_log_manager import EventLogManager
 from pattern_mining.pattern_mining_manager import PatternMiningManager
 from pattern_mining.table_manager import TableManager
-from utils.session_utils import allowed_file, make_session
+from utils.session_utils import allowed_file, make_session, get_file_extension
 
 app = Flask(__name__)
 app.secret_key = '8a28ef91377b0cf89b5fdfdb32672036'
@@ -20,10 +20,11 @@ def upload_ocel():
     if file.filename == '':
         flash('No selected file')
         return Response.get(True)
+    extension = get_file_extension(file.filename)
     if file and allowed_file(file.filename):
         make_session()
         elmo = EventLogManager()
-        elmo.enter_transmitted_file(file)
+        elmo.enter_transmitted_file(file, extension)
         pamela = PatternMiningManager(elmo.ocel)
         pamela.initialize()
         pamela.save()
@@ -60,6 +61,7 @@ def search():
     pamela: PatternMiningManager = PatternMiningManager.load()
     pamela.search()
     pamela.save_evaluation()
+    pamela.visualize_results()
     pamela.save()
     return Response.get(True)
 

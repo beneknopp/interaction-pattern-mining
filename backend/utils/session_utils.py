@@ -3,13 +3,14 @@ import os
 from flask import session
 
 RUNTIME_RESOURCE_FOLDER = os.path.join(os.getcwd(), "runtime_resources")
-ALLOWED_EXTENSIONS = {'sqlite'}
+ALLOWED_EXTENSIONS = {'sqlite', 'xml'}
 
+
+def get_file_extension(filename):
+    return filename.rsplit('.', 1)[1].lower()
 
 def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
+    return filename in ALLOWED_EXTENSIONS
 
 def make_session():
     key_path = os.path.join(RUNTIME_RESOURCE_FOLDER, "running_session_key")

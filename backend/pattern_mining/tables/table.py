@@ -4,21 +4,20 @@ from pm4py import OCEL
 
 
 def create_object_evolutions_table(object_table, event_table, object_change_table) -> DataFrame:
-    mintime = min(event_table["ocel:timestamp"].values)
+    mintime = min(min(event_table["ocel:timestamp"].values), min(object_change_table["ocel:timestamp"].values))
+    maxtime = max(max(event_table["ocel:timestamp"].values), max(object_change_table["ocel:timestamp"].values))
     changetimes = object_change_table["ocel:timestamp"].values
     if len(changetimes) > 0:
         mintime = min(mintime, changetimes.min())
-    # TODO
-    max_date_string = "31.12.2099 23:59:59"
-    maxtime = pd.Timestamp(max_date_string)
     object_table["ocel:field"] = pd.NA
     object_table.loc[:, "ocel:timestamp"] = mintime
     object_evolutions = pd.concat([object_table, object_change_table])
+    object_evolutions['ocel:timestamp'] = pd.to_datetime(object_evolutions['ocel:timestamp'], utc=False)
     object_evolutions.reset_index(drop=True, inplace=True)
-    object_evolutions["ox:from"] = object_evolutions["ocel:timestamp"]
+    object_evolutions["ox:from"] = object_evolutions['ocel:timestamp']
     object_evolutions.drop("ocel:timestamp", axis=1, inplace=True)
     object_evolutions.drop("ocel:type", axis=1, inplace=True)
-    object_evolutions["ox:to"] = pd.to_datetime(maxtime)
+    object_evolutions["ox:to"] = pd.to_datetime(maxtime, utc=False)
     object_evolutions.sort_values(["ocel:oid", "ox:from"], inplace=True)
     prev_oid = None
     prev_index = None
@@ -46,7 +45,10 @@ def create_event_interaction_table(events, e2o, object_evolutions) -> DataFrame:
     event_attributes = [col for col in df.columns if not col.startswith('ocel:')]
     df = df.drop(event_attributes, axis=1)
     df = df.merge(object_evolutions, on=["ocel:oid"], how="inner")
-    df = df[(df['ocel:timestamp'] >= df['ox:from']) & (df['ocel:timestamp'] < df['ox:to'])]
+    try:
+        df = df[(df['ocel:timestamp'] >= df['ox:from']) & (df['ocel:timestamp'] < df['ox:to'])]
+    except:
+        print("Hurensohn")
     df = df.drop(["ox:from", "ox:to"], axis=1)
     return df
 

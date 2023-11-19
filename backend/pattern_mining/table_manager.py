@@ -44,6 +44,7 @@ class TableManager:
         self.o2oTables = o2o_tables
         self.eventInteractionTable = event_interaction_table
         self.objectInteractionTable = object_interaction_table
+
     def get_event_index(self):
         return self.eventIndex.table[:]
 

@@ -1,8 +1,10 @@
 import time
+import warnings
 from itertools import product
 
 import numpy as np
 from flask import session
+from matplotlib import pyplot as plt
 from mlxtend.frequent_patterns import apriori, fpmax, association_rules
 from pandas import DataFrame
 from pm4py import OCEL
@@ -18,7 +20,7 @@ pd.options.mode.chained_assignment = None
 
 from pattern_mining.PATTERN_FORMULAS import get_ot_card_formula, get_e2o_exists_formula, get_o2o_exists_exists_formula, \
     get_o2o_exists_forall_formula, get_o2o_complete_formula, get_oaval_eq_exists_pattern, ExistentialPattern, \
-    get_existential_patterns_merge, get_e2o_forall_formula, get_o2o_forall_exists_formula
+    get_existential_patterns_merge, get_e2o_forall_formula, get_o2o_forall_exists_formula, get_eaval_eq_exists_pattern
 from pattern_mining.domains import ObjectVariableArgument
 from pattern_mining.pattern_formula import PatternFormula
 from pattern_mining.table_manager import TableManager
@@ -49,8 +51,8 @@ class PatternMiningManager:
                  categorical_search_min_entropy=0.01,
                  categorical_search_max_entropy=3.0,
                  categorical_variables_max_labels=10,
-                 max_initial_patterns=60,
-                 max_bootstrap_pattern_merge_recursion=8,
+                 max_initial_patterns=1000,
+                 max_bootstrap_pattern_merge_recursion=100000,
                  pattern_merge_subsumption_ratio=0.995,
                  min_support=0.05):
         """
@@ -87,6 +89,7 @@ class PatternMiningManager:
         # self.session_key = session_key
         self.sessionKey = session.get('session_key', None)
         self.ocel = ocel
+        self.__preprocess_ocel()
         self.entropyAttributesSplit = entropy_attributes_split
         self.entropySplitRecursionLevels = entropy_split_recursion_levels
         self.categoricalSearchMinEntropy = categorical_search_min_entropy
@@ -96,6 +99,40 @@ class PatternMiningManager:
         self.maxBootstrapPatternMergeRecursion = max_bootstrap_pattern_merge_recursion
         self.patternMergeSubsumptionRatio = pattern_merge_subsumption_ratio
         self.minSupport = min_support
+
+    def __preprocess_ocel(self):
+        events = self.ocel.events
+        object_changes = self.ocel.object_changes
+        # TODO: handle timezones
+        events["ocel:timestamp"] = pd.to_datetime(events["ocel:timestamp"].dt.tz_localize(None))
+        object_changes["ocel:timestamp"] = pd.to_datetime(object_changes["ocel:timestamp"].dt.tz_localize(None))
+
+    def visualize_results(self):
+        print(self.evaluation_records)
+        eval_df = pd.DataFrame(self.evaluation_records)
+        min_support_strings = [str(min_support) + "0" * (4 - len(str(min_support))) for min_support in self.maxItemsetsMinimalSupports]
+        for event_type in eval_df["event_type"].values:
+            support_sums = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_sum_of_itemsets_supports" for min_support_str in min_support_strings]].values.tolist()[0]
+            entropies = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_supports_entropy" for min_support_str in min_support_strings]].values.tolist()[0]
+            scores = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_score" for min_support_str in min_support_strings]].values.tolist()[0]
+            viz_table = pd.DataFrame({
+                "Minimal Pattern Support": self.maxItemsetsMinimalSupports,
+                "Sum of Supports": support_sums,
+                "Support Entropy": entropies,
+                "Score": scores
+            })
+            plt.plot(viz_table['Minimal Pattern Support'], viz_table["Sum of Supports"], label="Sum of Supports")
+            plt.plot(viz_table['Minimal Pattern Support'], viz_table['Support Entropy'], label='Support Entropy')
+            plt.plot(viz_table['Minimal Pattern Support'], viz_table['Score'], label='Score')
+            # Add labels and title
+            plt.xlabel('Minimal Pattern Support')
+            plt.legend()  # Show legend with labels
+            plt.title('FPGrowth for event type ' + event_type)
+            path = get_session_path()
+            path = os.path.join(path, event_type + "_eval" + ".png")
+            plt.savefig(path)
+            plt.clf()
+
 
     def save_evaluation(self):
         eval = pd.DataFrame(self.evaluation_records)
@@ -117,8 +154,12 @@ class PatternMiningManager:
             #path3 = os.path.join(path, "association_rules_" + event_type + ".xlsx")
             #association_rules.to_excel(path3)
         eval_path = os.path.join(path, "evaluation.xlsx")
-
         eval.to_excel(eval_path)
+        config_str = "maxInitialPatterns: " + str(self.maxInitialPatterns) +"\n"
+        config_str += "maxBootstrapPatternMergeRecursion: " + str(self.maxBootstrapPatternMergeRecursion) + "\n"
+        eval_config_path = os.path.join(path, "evaluation_config.txt")
+        with open(eval_config_path, "w") as wf:
+            wf.write(config_str)
 
     def save(self):
         name = PatternMiningManager.get_name()
@@ -312,7 +353,15 @@ class PatternMiningManager:
         self.__make_misc_patterns(event_type)
 
     def __make_event_attributes_default_patterns(self, event_type):
-        pass
+        for attribute, dtype in self.event_attribute_data_types[event_type].items():
+            if is_categorical_data_type(dtype):
+                # TODO: unify, maybe build TableManager already in __init__
+                labels = set(self.ocel.events[attribute].dropna().values)
+                if len(labels) > self.categoricalVariablesMaxLabels:
+                    continue
+                for label in labels:
+                    eaval_eq_exists_pattern = get_eaval_eq_exists_pattern(attribute, label)
+                    self.__add_basic_pattern(event_type, eaval_eq_exists_pattern)
 
     def __make_object_attributes_default_patterns(self, event_type):
         for object_type in self.event_types_object_types[event_type]:
@@ -429,42 +478,33 @@ class PatternMiningManager:
             used_prefixes.add(prefix)
 
     def search(self):
-        max_itemsets_minimal_supports = [round(100.0 * 0.05 * (i + 1)) / 100.0 for i in range(20)]
+        self.maxItemsetsMinimalSupports = [round(100.0 * 0.01 * (i + 1)) / 100.0 for i in range(100)]
         self.evaluation_records = {
             "event_type": [],
-            "number_of_bootstrap_patterns": [],
-            "number_of_merged_patterns": [], "pattern_evaluation_time": [],
-            #"itemset_mining_time": [], "number_of_itemsets": [],
+            "number_of_bootstrap_patterns": []
         }
-        for min_support in max_itemsets_minimal_supports:
-            self.evaluation_records["min_support_" + str(min_support) + "_fp_time"] = []
-            self.evaluation_records["min_support_" + str(min_support) + "_number_of_itemsets"] = []
-            self.evaluation_records["min_support_" + str(min_support) + "_sum_of_itemsets_supports"] = []
-            self.evaluation_records["min_support_" + str(min_support) + "_supports_entropy"] = []
+        for min_support in self.maxItemsetsMinimalSupports:
+            min_support_str = str(min_support) + "0"*(4 - len(str(min_support)))
+            self.evaluation_records["min_support_" + min_support_str + "_number_of_itemsets"] = []
+            self.evaluation_records["min_support_" + min_support_str + "_sum_of_itemsets_supports"] = []
+            self.evaluation_records["min_support_" + min_support_str + "_supports_entropy"] = []
+            self.evaluation_records["min_support_" + min_support_str + "_score"] = []
         ocel = self.ocel
         pattern: PatternFormula
         self.pattern_supports = {}
         self.maximal_pattern_supports = {}
         self.association_rules = {}
         event_types = list(self.event_types_object_types.keys())
-        #for event_type, event_object_types in [("send package", ["items", "products", "packages", "employees"])] + event_type_object_types:
-        for event_type in ["Depart"]:# + event_types:
+        for event_type in event_types:
             event_object_types = self.event_types_object_types[event_type]
             print("Starting for event type '" + event_type + "'.")
             table_manager = TableManager(ocel, event_type, event_object_types)
-            start_time = time.time()
             base_table = self.__make_bootstrap_table(event_type, table_manager)
             if len(base_table.columns) > self.maxInitialPatterns:
                 raise RuntimeError("More bootstrap patterns found than allowed by the 'max_initial_patterns' parameter.")
-            base_table = self.__merge_interaction_patterns(event_type, table_manager, base_table)
-            end_time = time.time()
-            elapsed_time = end_time - start_time
-            self.evaluation_records["pattern_evaluation_time"].append(elapsed_time)
-            #pattern_supports = self.__search_frequent_itemsets(base_table)
-            #self.evaluation_records["number_of_itemsets"].append(len(pattern_supports))
-            #self.pattern_supports[event_type] = pattern_supports
-            #self.__search_association_rules(event_type, pattern_supports)
-            self.__search_maximal_frequent_itemsets(event_type, base_table, max_itemsets_minimal_supports)
+            # TODO: closed until further notice
+            #base_table = self.__merge_interaction_patterns(event_type, table_manager, base_table)
+            self.__search_maximal_frequent_itemsets(event_type, base_table, self.maxItemsetsMinimalSupports)
             print("Finished for event type '" + event_type + "'.")
 
     def __make_bootstrap_table(self, event_type: str, table_manager: TableManager) -> DataFrame:
@@ -507,18 +547,20 @@ class PatternMiningManager:
 
     def __search_maximal_frequent_itemsets(self, event_type, base_table: DataFrame, max_itemsets_minimal_supports: list):
         self.maximal_pattern_supports[event_type] = {}
+        if event_type == "Create Transport Document":
+            print("Halt du Natzi")
         for min_support in max_itemsets_minimal_supports:
-            start_time = time.time()
+            min_support_str = str(min_support) + "0" * (4 - len(str(min_support)))
             maximal_pattern_supports = fpmax(base_table, min_support=min_support, use_colnames=True)
-            end_time = time.time()
-            elapsed_time = end_time - start_time
-            self.evaluation_records["min_support_" + str(min_support) + "_fp_time"].append(elapsed_time)
-            self.evaluation_records["min_support_" + str(min_support) + "_number_of_itemsets"].append(
+            self.evaluation_records["min_support_" + min_support_str + "_number_of_itemsets"].append(
                 len(maximal_pattern_supports))
             supports_sum = sum(maximal_pattern_supports["support"])
+            warnings.simplefilter("ignore", FutureWarning)
             supports_entropy = maximal_pattern_supports.iloc[:, :1].apply(lambda row: -(row / supports_sum * np.log2(row))).sum()[0]
-            self.evaluation_records["min_support_" + str(min_support) + "_sum_of_itemsets_supports"].append(supports_sum)
-            self.evaluation_records["min_support_" + str(min_support) + "_supports_entropy"].append(supports_entropy)
+            score = (1 + supports_entropy) * supports_sum if supports_sum < 1 else (1 + supports_entropy) / supports_sum
+            self.evaluation_records["min_support_" + min_support_str + "_sum_of_itemsets_supports"].append(supports_sum)
+            self.evaluation_records["min_support_" + min_support_str + "_supports_entropy"].append(supports_entropy)
+            self.evaluation_records["min_support_" + min_support_str + "_score"].append(score)
             maximal_pattern_supports["itemsets"] = maximal_pattern_supports["itemsets"].apply(lambda x: sorted(x))
             self.maximal_pattern_supports[event_type][min_support] = maximal_pattern_supports
 
@@ -597,3 +639,4 @@ class PatternMiningManager:
             delete_indices = delete_indices + [old_merged_index] \
                 if old_merged_index not in delete_indices else delete_indices
         return delete_indices
+
