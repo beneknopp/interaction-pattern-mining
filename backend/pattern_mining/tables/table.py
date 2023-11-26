@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from pandas import DataFrame
 from pm4py import OCEL
 
@@ -6,6 +7,7 @@ from pm4py import OCEL
 def create_object_evolutions_table(object_table, event_table, object_change_table) -> DataFrame:
     mintime = min(min(event_table["ocel:timestamp"].values), min(object_change_table["ocel:timestamp"].values))
     maxtime = max(max(event_table["ocel:timestamp"].values), max(object_change_table["ocel:timestamp"].values))
+    maxtime = maxtime + np.timedelta64(365, 'D')
     changetimes = object_change_table["ocel:timestamp"].values
     if len(changetimes) > 0:
         mintime = min(mintime, changetimes.min())
@@ -45,10 +47,7 @@ def create_event_interaction_table(events, e2o, object_evolutions) -> DataFrame:
     event_attributes = [col for col in df.columns if not col.startswith('ocel:')]
     df = df.drop(event_attributes, axis=1)
     df = df.merge(object_evolutions, on=["ocel:oid"], how="inner")
-    try:
-        df = df[(df['ocel:timestamp'] >= df['ox:from']) & (df['ocel:timestamp'] < df['ox:to'])]
-    except:
-        print("Hurensohn")
+    df = df[(df['ocel:timestamp'] >= df['ox:from']) & (df['ocel:timestamp'] < df['ox:to'])]
     df = df.drop(["ox:from", "ox:to"], axis=1)
     return df
 

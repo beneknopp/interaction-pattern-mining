@@ -10,7 +10,7 @@ def get_file_extension(filename):
     return filename.rsplit('.', 1)[1].lower()
 
 def allowed_file(filename):
-    return filename in ALLOWED_EXTENSIONS
+    return filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def make_session():
     key_path = os.path.join(RUNTIME_RESOURCE_FOLDER, "running_session_key")

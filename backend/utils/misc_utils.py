@@ -9,3 +9,7 @@ def is_categorical_data_type(data_type):
     return data_type == object or data_type == str
 
 
+def list_equals(A, B):
+    if not len(A) == len(B):
+        return False
+    return all(A[i] == B[i] for i in range(len(A)))

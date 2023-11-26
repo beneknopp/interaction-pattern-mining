@@ -23,6 +23,9 @@ class FreePatternFormula(PatternFormula):
     def get_free_variables(self):
         return self.freePattern.get_free_variables()
 
+    def get_object_type(self):
+        return None
+
     def substitute(self, object_arg: ObjectArgument, object_variable_arg: ObjectVariableArgument):
         self.freePattern.substitute(object_arg, object_variable_arg)
 
@@ -43,6 +46,9 @@ class Negation(PatternFormula):
     def copy(self):
         return Negation(self.patternFormula.copy())
 
+    def get_object_type(self):
+        return self.patternFormula.get_object_type()
+
     def get_free_variables(self):
         return self.patternFormula.get_free_variables()
 
@@ -52,7 +58,7 @@ class Negation(PatternFormula):
     def apply(self, table_manager):
         subformula_evaluation_table = self.patternFormula.apply(table_manager)
         evaluation_table = subformula_evaluation_table[:]
-        evaluation_table["ox:evaluation"] = ~evaluation_table["ox:evaluation"]
+        evaluation_table["ox:evaluation"] = ~evaluation_table["ox:evaluation"].astype(bool)
         return evaluation_table
 
     def to_string(self):
@@ -82,6 +88,9 @@ class Disjunction(PatternFormula):
         evaluation_table["ox:evaluation"] = evaluation_table["ox:evaluation_x"] | evaluation_table["ox:evaluation_y"]
         evaluation_table.drop(columns=["ox:evaluation_x", "ox:evaluation_y"], inplace=True)
         return evaluation_table
+
+    def get_object_type(self):
+        raise ValueError()
 
     def get_free_variables(self):
         return self.patternFormula1.get_free_variables().union(self.patternFormula2.get_free_variables())
@@ -123,6 +132,9 @@ class Conjunction(PatternFormula):
         evaluation_table.drop(columns=["ox:evaluation_x", "ox:evaluation_y"], inplace=True)
         return evaluation_table
 
+    def get_object_type(self):
+        raise ValueError()
+
     def get_free_variables(self):
         return self.patternFormula1.get_free_variables().union(self.patternFormula2.get_free_variables())
 
@@ -155,6 +167,9 @@ class ExistentialPattern(PatternFormula):
         evaluation_table = subformula_evaluation_table.groupby(event_id_and_free_variables).agg('any').reset_index()
         return evaluation_table
 
+    def get_object_type(self):
+        return self.quantifiedVariable.objectType
+
     def get_free_variables(self):
         return set(x for x in self.patternFormula.get_free_variables() if not equals(x, self.quantifiedVariable))
 
@@ -177,6 +192,9 @@ class UniversalPattern(PatternFormula):
         super().__init__()
         self.quantifiedVariable = quantified_variable
         self.patternFormula = pattern_formula
+
+    def get_object_type(self):
+        return self.quantifiedVariable.objectType
 
     def get_free_variables(self):
         return set(x for x in self.patternFormula.get_free_variables() if not equals(x, self.quantifiedVariable))
@@ -244,14 +262,16 @@ def get_ot_card_formula(object_type, card):
         )
     )
 
-def get_eaval_eq_exists_pattern(attribute: str, value) -> ExistentialPattern:
+
+def get_eaval_eq_pattern(attribute: str, value) -> FreePatternFormula:
     arguments = []
     return FreePatternFormula(
-            FreePattern(
-                Eaval_eq(attribute, value),
-                arguments
-            )
+        FreePattern(
+            Eaval_eq(attribute, value),
+            arguments
         )
+    )
+
 
 def get_oaval_eq_exists_pattern(object_variable: ObjectVariableArgument, attribute: str, value) -> ExistentialPattern:
     arguments = [object_variable]
@@ -356,15 +376,46 @@ def get_o2o_complete_formula(object_variable: ObjectVariableArgument, qual: str,
     )
 
 
-def get_existential_patterns_merge(existential_patt1: ExistentialPattern,
-                                   existential_patt2: ExistentialPattern) -> ExistentialPattern:
-    quantified_variable = existential_patt1.quantifiedVariable
-    if not equals(quantified_variable, existential_patt2.quantifiedVariable):
+def get_existential_patterns_merge(existential_patterns) -> ExistentialPattern:
+    if len(existential_patterns) == 0:
         raise ValueError()
+    existential_pattern: ExistentialPattern
+    quantified_variable = existential_patterns[0].quantifiedVariable
+    if not all(quantified_variable.objectType == existential_pattern.quantifiedVariable.objectType
+               for existential_pattern in existential_patterns):
+        raise ValueError()
+    conjunction = existential_patterns[0].patternFormula.copy()
+    for existential_pattern in existential_patterns[1:]:
+        conjunction = Conjunction(
+            conjunction,
+            existential_pattern.patternFormula.copy()
+        )
     return ExistentialPattern(
         quantified_variable,
-        Conjunction(
-            existential_patt1.patternFormula.copy(),
-            existential_patt2.patternFormula.copy()
+        conjunction
+    )
+
+
+def get_universal_patterns_merge(universal_patterns) -> UniversalPattern:
+    if len(universal_patterns) == 0:
+        raise ValueError()
+    universal_pattern: UniversalPattern
+    quantified_variable = universal_patterns[0].quantifiedVariable
+    if not all(quantified_variable.objectType == universal_pattern.quantifiedVariable.objectType
+               for universal_pattern in universal_patterns):
+        raise ValueError()
+    conjunction = universal_patterns[0].patternFormula.copy()
+    for universal_pattern in universal_patterns[1:]:
+        conjunction = Conjunction(
+            conjunction,
+            universal_pattern.patternFormula.copy()
         )
+    return UniversalPattern(
+        quantified_variable,
+        conjunction
+    )
+
+def get_anti_pattern(pattern: PatternFormula) -> Negation:
+    return Negation(
+        pattern.copy()
     )

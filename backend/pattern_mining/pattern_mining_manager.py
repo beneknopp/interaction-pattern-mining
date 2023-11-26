@@ -14,13 +14,16 @@ import pickle
 
 import pandas as pd
 
-from utils.misc_utils import is_categorical_data_type
+from pattern_mining.model import Model
+from utils.misc_utils import is_categorical_data_type, list_equals
 
 pd.options.mode.chained_assignment = None
+warnings.simplefilter("ignore", FutureWarning)
 
 from pattern_mining.PATTERN_FORMULAS import get_ot_card_formula, get_e2o_exists_formula, get_o2o_exists_exists_formula, \
     get_o2o_exists_forall_formula, get_o2o_complete_formula, get_oaval_eq_exists_pattern, ExistentialPattern, \
-    get_existential_patterns_merge, get_e2o_forall_formula, get_o2o_forall_exists_formula, get_eaval_eq_exists_pattern
+    get_existential_patterns_merge, get_e2o_forall_formula, get_o2o_forall_exists_formula, get_eaval_eq_pattern, \
+    UniversalPattern, get_universal_patterns_merge, get_anti_pattern
 from pattern_mining.domains import ObjectVariableArgument
 from pattern_mining.pattern_formula import PatternFormula
 from pattern_mining.table_manager import TableManager
@@ -49,11 +52,12 @@ class PatternMiningManager:
                  entropy_attributes_split=False,
                  entropy_split_recursion_levels=4,
                  categorical_search_min_entropy=0.01,
-                 categorical_search_max_entropy=3.0,
+                 categorical_search_max_entropy=2.0,
                  categorical_variables_max_labels=10,
                  max_initial_patterns=1000,
                  max_bootstrap_pattern_merge_recursion=100000,
                  pattern_merge_subsumption_ratio=0.995,
+                 min_split_information_gain=0.1,
                  min_support=0.05):
         """
          This class will conduct the pattern mining.
@@ -80,9 +84,11 @@ class PatternMiningManager:
            max_initial_patterns (int)
                 Mining for frequent itemsets can be computationally expensive for large number of patterns. For the Apriori algorithm, the
                 upper limit of 30 is a good choice. If you only mine for maximal frequent itemsets (FPGrowth), a higher threshold can be chosen.
-           max_bootstrap_pattern_merge_recursion
+           max_bootstrap_pattern_merge_recursion (int)
                 Mining for frequent itemsets can be computationally expensive for large number of patterns. This threshold limits the number of
                 rounds in which new patterns are formed by merging with bootstrap patterns.
+           min_split_information_gain (float)
+                When splitting a partitioner based on object attributes, this is the threshold for information gain through a single split step.
            min_support (float)
                 The minimal support of a pattern to be returned by the pattern mining procedure.
          """
@@ -98,6 +104,7 @@ class PatternMiningManager:
         self.maxInitialPatterns = max_initial_patterns
         self.maxBootstrapPatternMergeRecursion = max_bootstrap_pattern_merge_recursion
         self.patternMergeSubsumptionRatio = pattern_merge_subsumption_ratio
+        self.minSplitInformationGain = min_split_information_gain
         self.minSupport = min_support
 
     def __preprocess_ocel(self):
@@ -108,26 +115,26 @@ class PatternMiningManager:
         object_changes["ocel:timestamp"] = pd.to_datetime(object_changes["ocel:timestamp"].dt.tz_localize(None))
 
     def visualize_results(self):
-        print(self.evaluation_records)
         eval_df = pd.DataFrame(self.evaluation_records)
-        min_support_strings = [str(min_support) + "0" * (4 - len(str(min_support))) for min_support in self.maxItemsetsMinimalSupports]
+        minimal_frequencies_strs = [str(round(x*100)/100) for x in self.minimal_frequencies]
         for event_type in eval_df["event_type"].values:
-            support_sums = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_sum_of_itemsets_supports" for min_support_str in min_support_strings]].values.tolist()[0]
-            entropies = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_supports_entropy" for min_support_str in min_support_strings]].values.tolist()[0]
-            scores = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_score" for min_support_str in min_support_strings]].values.tolist()[0]
+            #support_sums = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_sum_of_itemsets_supports" for min_support_str in min_support_strings]].values.tolist()[0]
+            #entropies = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_supports_entropy" for min_support_str in min_support_strings]].values.tolist()[0]
+            #scores = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_score" for min_support_str in min_support_strings]].values.tolist()[0]
+            scores = eval_df[eval_df["event_type"] == event_type][["partition_construction_approach_scores_" + event_inclusion_step for event_inclusion_step in minimal_frequencies_strs]].values.tolist()[0]
             viz_table = pd.DataFrame({
-                "Minimal Pattern Support": self.maxItemsetsMinimalSupports,
-                "Sum of Supports": support_sums,
-                "Support Entropy": entropies,
-                "Score": scores
+                #"Sum of Supports": support_sums,
+                #"Support Entropy": entropies,
+                "score": scores,
+                "% events included": minimal_frequencies_strs
             })
-            plt.plot(viz_table['Minimal Pattern Support'], viz_table["Sum of Supports"], label="Sum of Supports")
-            plt.plot(viz_table['Minimal Pattern Support'], viz_table['Support Entropy'], label='Support Entropy')
-            plt.plot(viz_table['Minimal Pattern Support'], viz_table['Score'], label='Score')
+            #plt.plot(viz_table['Minimal Pattern Support'], viz_table["Sum of Supports"], label="Sum of Supports")
+            #plt.plot(viz_table['Minimal Pattern Support'], viz_table['Support Entropy'], label='Support Entropy')
+            plt.plot(viz_table['% events included'], viz_table['score'], label='score')
             # Add labels and title
-            plt.xlabel('Minimal Pattern Support')
+            plt.xlabel('% events included')
             plt.legend()  # Show legend with labels
-            plt.title('FPGrowth for event type ' + event_type)
+            plt.title('Partition method for event type ' + event_type)
             path = get_session_path()
             path = os.path.join(path, event_type + "_eval" + ".png")
             plt.savefig(path)
@@ -139,6 +146,7 @@ class PatternMiningManager:
         path = get_session_path()
         for event_type in eval["event_type"].values:
             #pattern_supports: DataFrame = self.pattern_supports[event_type]
+            #path = get_session_path()
             #path1 = os.path.join(path, "pattern_supports_" + event_type + ".xlsx")
             #pattern_supports.to_excel(path1)
             #path1 = os.path.join(path, "pattern_supports_" + event_type + ".csv")
@@ -176,9 +184,9 @@ class PatternMiningManager:
     def get_search_plans(self):
         search_plans = {
             event_type: list(id_to_pattern.keys())
-            for event_type, id_to_pattern in self.search_basic_patterns.items()
+            for event_type, id_to_pattern in self.searched_basic_patterns.items()
         }
-        for event_type, object_type_to_interaction_patterns in self.search_interaction_patterns.items():
+        for event_type, object_type_to_interaction_patterns in self.searched_interaction_patterns.items():
             for object_type, id_to_pattern in object_type_to_interaction_patterns.items():
                 search_plans[event_type] += list(id_to_pattern.keys())
         return search_plans
@@ -281,8 +289,8 @@ class PatternMiningManager:
     def __load_event_type_object_to_object_relations_info(self):
         self.event_type_object_to_object_relations = {}
         self.event_type_object_to_object_multi_relations = {}
-        e2o = self.ocel.relations[:].drop_duplicates()
-        o2o = self.ocel.o2o[:].drop_duplicates()
+        e2o = self.ocel.relations.copy().drop_duplicates()
+        o2o = self.ocel.o2o.copy().drop_duplicates()
         o2o.rename(columns={"ocel:qualifier": "o2o_qualifier"}, inplace=True)
         for event_type in self.event_types:
             event_type_e2o = e2o[e2o["ocel:activity"] == event_type]
@@ -326,21 +334,30 @@ class PatternMiningManager:
     def __make_default_search_plans(self):
         if self.entropyAttributesSplit:
             self.__make_entropy_attributes_split()
-        self.search_basic_patterns = {}
-        self.search_interaction_patterns = {}
+        self.searched_basic_patterns = {}
+        self.searched_interaction_patterns = {}
+        self.object_categorical_attribute_patterns = {}
         for event_type in self.event_types:
-            self.search_basic_patterns[event_type] = {}
-            self.search_interaction_patterns[event_type] = {
+            self.searched_basic_patterns[event_type] = {}
+            self.searched_interaction_patterns[event_type] = {
                 object_type: {} for object_type in self.event_types_object_types[event_type]}
             self.__make_default_search_plan(event_type)
 
+    def __make_default_independent_pattern_plans(self):
+        self.searched_independent_patterns = {}
+        for event_type in self.event_types:
+            self.searched_independent_patterns[event_type] = {}
+
     def __add_basic_pattern(self, event_type, pattern: PatternFormula):
         pattern_id = pattern.to_string()
-        self.search_basic_patterns[event_type][pattern_id] = pattern
+        self.searched_basic_patterns[event_type][pattern_id] = pattern
 
     def __add_interaction_pattern(self, event_type, object_type, pattern: PatternFormula):
         pattern_id = pattern.to_string()
-        self.search_interaction_patterns[event_type][object_type][pattern_id] = pattern
+        self.searched_interaction_patterns[event_type][object_type][pattern_id] = pattern
+
+    def __delete_interaction_pattern(self, event_type, object_type, pattern_id: str):
+        del self.searched_interaction_patterns[event_type][object_type][pattern_id]
 
     def __make_entropy_attributes_split(self):
         raise NotImplementedError("Please implement me")
@@ -360,11 +377,13 @@ class PatternMiningManager:
                 if len(labels) > self.categoricalVariablesMaxLabels:
                     continue
                 for label in labels:
-                    eaval_eq_exists_pattern = get_eaval_eq_exists_pattern(attribute, label)
+                    eaval_eq_exists_pattern = get_eaval_eq_pattern(attribute, label)
                     self.__add_basic_pattern(event_type, eaval_eq_exists_pattern)
 
     def __make_object_attributes_default_patterns(self, event_type):
+        self.object_categorical_attribute_patterns[event_type] = {}
         for object_type in self.event_types_object_types[event_type]:
+            self.object_categorical_attribute_patterns[event_type][object_type] = {}
             object_variable_id = self.variable_prefixes[object_type]
             object_variable_argument = ObjectVariableArgument(object_type, object_variable_id)
             for attribute, dtype in self.object_attribute_data_types[object_type].items():
@@ -374,9 +393,11 @@ class PatternMiningManager:
                     labels = labels.union(set(self.ocel.object_changes[attribute].dropna().values))
                     if len(labels) > self.categoricalVariablesMaxLabels:
                         continue
+                    self.object_categorical_attribute_patterns[event_type][object_type][attribute] = []
                     for label in labels:
                         oaval_eq_exists_pattern = get_oaval_eq_exists_pattern(object_variable_argument, attribute,
                                                                               label)
+                        self.object_categorical_attribute_patterns[event_type][object_type][attribute].append(oaval_eq_exists_pattern)
                         self.__add_interaction_pattern(event_type, object_type, oaval_eq_exists_pattern)
 
     def __make_event_type_to_object_default_patterns(self, event_type):
@@ -477,44 +498,57 @@ class PatternMiningManager:
             self.variable_prefixes[object_type] = prefix
             used_prefixes.add(prefix)
 
-    def search(self):
-        self.maxItemsetsMinimalSupports = [round(100.0 * 0.01 * (i + 1)) / 100.0 for i in range(100)]
+    def search_models(self, event_types):
         self.evaluation_records = {
             "event_type": [],
-            "number_of_bootstrap_patterns": []
+            "run": [],
+            "recall": [],
+            "precision": [],
+            "discrimination": [],
+            "simplicity": [],
+            "rule_splits": [],
+            "time": []
         }
-        for min_support in self.maxItemsetsMinimalSupports:
-            min_support_str = str(min_support) + "0"*(4 - len(str(min_support)))
-            self.evaluation_records["min_support_" + min_support_str + "_number_of_itemsets"] = []
-            self.evaluation_records["min_support_" + min_support_str + "_sum_of_itemsets_supports"] = []
-            self.evaluation_records["min_support_" + min_support_str + "_supports_entropy"] = []
-            self.evaluation_records["min_support_" + min_support_str + "_score"] = []
-        ocel = self.ocel
+        self.minimal_frequencies = [0.05*(i) for i in range(21)]
         pattern: PatternFormula
         self.pattern_supports = {}
         self.maximal_pattern_supports = {}
-        self.association_rules = {}
-        event_types = list(self.event_types_object_types.keys())
+        self.anti_patterns = {}
+        self.base_tables = {}
+        self.models = {}
         for event_type in event_types:
             event_object_types = self.event_types_object_types[event_type]
             print("Starting for event type '" + event_type + "'.")
-            table_manager = TableManager(ocel, event_type, event_object_types)
+            table_manager = TableManager(self.ocel, event_type, event_object_types)
             base_table = self.__make_bootstrap_table(event_type, table_manager)
             if len(base_table.columns) > self.maxInitialPatterns:
-                raise RuntimeError("More bootstrap patterns found than allowed by the 'max_initial_patterns' parameter.")
-            # TODO: closed until further notice
-            #base_table = self.__merge_interaction_patterns(event_type, table_manager, base_table)
-            self.__search_maximal_frequent_itemsets(event_type, base_table, self.maxItemsetsMinimalSupports)
+                raise RuntimeError ("More bootstrap patterns found than allowed by the 'max_initial_patterns' "
+                                      "parameter.")
+            base_table = self.__merge_interaction_patterns(event_type, base_table, table_manager)
+            base_table = self.__add_anti_patterns(event_type, base_table)
+            model = self.__make_models(event_type, base_table)
+
+            self.base_tables[event_type] = base_table
             print("Finished for event type '" + event_type + "'.")
+
+
+    def __get_boolean_table_average_entropy(self, table: DataFrame, columns):
+        average_entropy = 0
+        n = len(table)
+        for col in columns:
+            boolean_sum = table[col].sum()
+            if boolean_sum == n or boolean_sum == 0:
+                entropy = 0
+            else:
+                entropy = -(np.log2(boolean_sum / n) * boolean_sum / n + np.log2((n - boolean_sum) / n) * (n - boolean_sum) / n)
+            average_entropy += entropy
+        return average_entropy / n
 
     def __make_bootstrap_table(self, event_type: str, table_manager: TableManager) -> DataFrame:
         base_table = table_manager.get_event_index()
-        basic_patterns = self.search_basic_patterns[event_type]
-        interaction_patterns = self.search_interaction_patterns[event_type]
-        number_of_bootstrap_patterns = len(basic_patterns) + sum(
-            len(ot_pats) for ot_pats in interaction_patterns.values())
+        basic_patterns = self.searched_basic_patterns[event_type]
+        interaction_patterns = self.searched_interaction_patterns[event_type]
         self.evaluation_records["event_type"].append(event_type)
-        self.evaluation_records["number_of_bootstrap_patterns"].append(number_of_bootstrap_patterns)
         for pattern_id, pattern in basic_patterns.items():
             evaluation = pattern.evaluate(table_manager)
             base_table.loc[:, pattern_id] = evaluation
@@ -524,49 +558,157 @@ class PatternMiningManager:
                 base_table.loc[:, pattern_id] = evaluation
         return base_table
 
-    def __merge_interaction_patterns(self, event_type, table_manager:TableManager, base_table: DataFrame):
+    def __merge_interaction_patterns(self, event_type, base_table: DataFrame, table_manager:TableManager):
         total_count = 0
-        interaction_patterns = self.search_interaction_patterns[event_type]
+        interaction_patterns = self.searched_interaction_patterns[event_type]
         for object_type, patterns in interaction_patterns.items():
             if self.event_type_object_types_variability[event_type][object_type]:
-                count, base_table = self.__merge_variable_types_existential_patterns(patterns.values(), base_table,
-                                                                                     table_manager, event_type, object_type)
+                count, base_table = self.__merge_variable_types_existential_patterns(
+                    patterns.values(), base_table, table_manager, event_type, object_type)
                 total_count += count
-        self.evaluation_records["number_of_merged_patterns"].append(total_count)
         return base_table
 
-    def __search_frequent_itemsets(self, base_table: DataFrame):
-        start_time = time.time()
-        pattern_supports = apriori(base_table, min_support=self.minSupport, use_colnames=True)
-        # readability
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        self.evaluation_records["itemset_mining_time"].append(elapsed_time)
-        pattern_supports["itemsets"] = pattern_supports["itemsets"].apply(lambda x: sorted(x))
-        return pattern_supports
+    def __add_anti_patterns(self,event_type, base_table):
+        pattern_ids_and_pattern = list(self.searched_basic_patterns[event_type].items())
+        pattern_ids_and_pattern += [(pattern_id, pattern)
+                                    for object_type, interaction_patterns in self.searched_interaction_patterns[event_type].items()
+                                    for pattern_id, pattern in interaction_patterns.items()]
+        self.anti_patterns[event_type] = {}
+        for pattern_id, pattern in pattern_ids_and_pattern:
+            # KISS
+            anti_pattern_eval = ~base_table[pattern_id].astype(bool)
+            anti_pattern = get_anti_pattern(pattern)
+            anti_pattern_id = anti_pattern.to_string()
+            object_type = pattern.get_object_type()
+            if object_type is None:
+                self.__add_basic_pattern(event_type, anti_pattern)
+                self.anti_patterns[event_type][pattern_id] = anti_pattern
+            else:
+                self.__add_interaction_pattern(event_type, object_type, anti_pattern)
+                self.anti_patterns[event_type][pattern_id] = anti_pattern
+            base_table[anti_pattern_id] = anti_pattern_eval
+        return base_table
 
-    def __search_maximal_frequent_itemsets(self, event_type, base_table: DataFrame, max_itemsets_minimal_supports: list):
+
+    def __make_models(self, event_type, base_table: DataFrame):
         self.maximal_pattern_supports[event_type] = {}
-        if event_type == "Create Transport Document":
-            print("Halt du Natzi")
-        for min_support in max_itemsets_minimal_supports:
-            min_support_str = str(min_support) + "0" * (4 - len(str(min_support)))
-            maximal_pattern_supports = fpmax(base_table, min_support=min_support, use_colnames=True)
-            self.evaluation_records["min_support_" + min_support_str + "_number_of_itemsets"].append(
-                len(maximal_pattern_supports))
-            supports_sum = sum(maximal_pattern_supports["support"])
-            warnings.simplefilter("ignore", FutureWarning)
-            supports_entropy = maximal_pattern_supports.iloc[:, :1].apply(lambda row: -(row / supports_sum * np.log2(row))).sum()[0]
-            score = (1 + supports_entropy) * supports_sum if supports_sum < 1 else (1 + supports_entropy) / supports_sum
-            self.evaluation_records["min_support_" + min_support_str + "_sum_of_itemsets_supports"].append(supports_sum)
-            self.evaluation_records["min_support_" + min_support_str + "_supports_entropy"].append(supports_entropy)
-            self.evaluation_records["min_support_" + min_support_str + "_score"].append(score)
-            maximal_pattern_supports["itemsets"] = maximal_pattern_supports["itemsets"].apply(lambda x: sorted(x))
-            self.maximal_pattern_supports[event_type][min_support] = maximal_pattern_supports
+        working_table = base_table[:]
+        #informative_columns = [col for col in working_table.columns
+        #                       if not (working_table[col].astype(bool).all() or (~working_table[col]).astype(bool).all())]
+        #working_table = working_table[informative_columns]
+        self.__make_fpgrowth_models(event_type, working_table)
 
-    def __search_association_rules(self, event_type, pattern_supports: DataFrame):
-        rules = association_rules(pattern_supports, metric="confidence", min_threshold=0.7)
-        self.association_rules[event_type] = rules
+    def __make_fpgrowth_models(self, event_type, base_table):
+        path = get_session_path()
+        object_types = self.event_types_object_types[event_type]
+        for i in range(len(self.minimal_frequencies)):
+            if i == 0:
+                minimal_frequency = 1 / (len(base_table) + 1)
+            elif i == len(self.minimal_frequencies) - 1:
+                minimal_frequency = 1 - (len(base_table) + 1)
+            else:
+                minimal_frequency = self.minimal_frequencies[i]
+            minimal_frequency_str = str(round(minimal_frequency*100)/100)
+            pattern_supports = fpmax(base_table, min_support=minimal_frequency, use_colnames=True)
+            pattern_supports["itemsets"] = pattern_supports["itemsets"].apply(lambda x: sorted(x))
+            model = Model(pattern_supports, base_table, event_type, object_types)
+            splitter_groups = self.__get_splitter_groups(event_type)
+            model.make_splits(self.minSplitInformationGain, splitter_groups)
+            simplified_patterns = self.__simplify_mining_results(event_type, pattern_supports)
+            supports_sum = sum(simplified_patterns["support"])
+            supports_entropy = simplified_patterns.iloc[:, :1].apply(lambda row: -(row / supports_sum * np.log2(row))).sum()[0]
+            total_complexity = self.__get_total_complexity(simplified_patterns)
+            pattern_complexity = self.__get_pattern_complexity(simplified_patterns)
+            path1 = os.path.join(path, "pattern_supports_" + event_type + "_min_freq_" + minimal_frequency_str + ".xlsx")
+            simplified_patterns.to_excel(path1)
+
+    def __get_splitter_groups(self, event_type):
+        patterns = self.object_categorical_attribute_patterns[event_type]
+        split_patterns = []
+        for object_type, cat_att_to_patts in patterns.items():
+            cat_patts = []
+            for cat_att, patts in cat_att_to_patts.items():
+                split_patterns[object_type][cat_att] = []
+                for patt in patts:
+                    anti_patt = self.anti_patterns[event_type][patt.to_string()]
+                    cat_patts.append(patt)
+                    cat_patts.append(anti_patt)
+            split_patterns.append((cat_att, cat_patts))
+        return split_patterns
+
+    def __simplify_mining_results(self, event_type, pattern_supports):
+        simplified_patterns = pattern_supports.copy()
+        pattern_descriptors = pattern_supports["itemsets"]
+        merged_descriptors = self.__post_pattern_merge(event_type, pattern_descriptors)
+        distinct_descriptors = self.__factor_out_valid_patterns(merged_descriptors)
+        simplified_patterns["itemsets"] = distinct_descriptors
+        return simplified_patterns
+
+    def __post_pattern_merge(self, event_type, pattern_descriptors):
+        merged_descriptors = pattern_descriptors.apply(
+            lambda descriptor:
+                self.__merge_patterns_per_descriptor(event_type, descriptor)
+        )
+        return merged_descriptors
+
+    def __factor_out_valid_patterns(self, pattern_descriptors):
+        valid_patterns = set.intersection(*(set(descriptor_list) for descriptor_list in pattern_descriptors))
+        distinct_descriptors = pattern_descriptors.apply(lambda lst: [item for item in lst if item not in valid_patterns])
+        return distinct_descriptors
+
+    def __merge_patterns_per_descriptor(self, event_type, descriptor):
+        basic_patterns = self.searched_basic_patterns[event_type]
+        object_type_patterns = self.searched_interaction_patterns[event_type]
+        pattern_ids_to_pattern = basic_patterns.copy()
+        pattern_ids_to_pattern.update({
+            pattern.to_string(): pattern
+            for object_type, patterns in object_type_patterns.items()
+            for pattern_id, pattern in patterns.items()
+        })
+        merged_descriptor = []
+        singleton_types_existential_patterns = {}
+        variable_types_universal_patterns = {}
+        for pattern_id in descriptor:
+            pattern: PatternFormula = pattern_ids_to_pattern[pattern_id]
+            if isinstance(pattern, ExistentialPattern):
+                pattern: ExistentialPattern
+                variable = pattern.quantifiedVariable
+                object_type = variable.objectType
+                is_singleton_type = not self.event_type_object_types_variability[event_type][object_type]
+                if is_singleton_type:
+                    if object_type not in singleton_types_existential_patterns:
+                        singleton_types_existential_patterns[object_type] = []
+                    singleton_types_existential_patterns[object_type].append(pattern)
+                else:
+                    merged_descriptor.append(pattern_id)
+            if isinstance(pattern, UniversalPattern):
+                pattern: UniversalPattern
+                variable = pattern.quantifiedVariable
+                object_type = variable.objectType
+                is_variable_type = self.event_type_object_types_variability[event_type][object_type]
+                if is_variable_type:
+                    if object_type not in variable_types_universal_patterns:
+                        variable_types_universal_patterns[object_type] = []
+                    variable_types_universal_patterns[object_type].append(pattern)
+                else:
+                    merged_descriptor.append(pattern_id)
+        for singleton_type, existential_patterns in singleton_types_existential_patterns.items():
+            merged_pattern = get_existential_patterns_merge(existential_patterns)
+            merged_pattern_id = merged_pattern.to_string()
+            merged_descriptor.append(merged_pattern_id)
+            self.searched_interaction_patterns[event_type][singleton_type][merged_pattern_id] = merged_pattern
+        for variable_type, universal_patterns in variable_types_universal_patterns.items():
+            merged_pattern = get_universal_patterns_merge(universal_patterns)
+            merged_pattern_id = merged_pattern.to_string()
+            merged_descriptor.append(merged_pattern_id)
+            self.searched_interaction_patterns[event_type][variable_type][merged_pattern_id] = merged_pattern
+        return merged_descriptor
+
+    def __get_total_complexity(self, pattern_supports):
+        return len(set([pattern_id for descriptor in pattern_supports["itemsets"].values for pattern_id in descriptor]))
+
+    def __get_pattern_complexity(self, pattern_supports):
+        return sum(pattern_supports["support"] * pattern_supports["itemsets"].apply(lambda x: len(x) + 1))
 
     def __merge_variable_types_existential_patterns(self, patterns, base_table, table_manager, event_type, object_type):
         existential_patterns = list(filter(lambda pat: isinstance(pat, ExistentialPattern), patterns))
@@ -580,14 +722,14 @@ class PatternMiningManager:
             str(pat[0]): base_table[index_to_pattern_id[str(pat[0])]].sum() / total_events
             for pat in bootstrap_patterns
         }
-        # create indices is not used, just for debugging
-        create_indices = []
-        delete_indices = []
+        # for create indices also store the pattern to save it in the PatternMiningManager
+        creates = {}
+        deletes = []
         checked_indices = [index for index, patt in bootstrap_patterns]
         update = True
         count = 0
         rounds = 0
-        indexed_merged_patterns = bootstrap_patterns[:]
+        indexed_merged_patterns = bootstrap_patterns.copy()
         while update and rounds < self.maxBootstrapPatternMergeRecursion:
             rounds = rounds + 1
             update = False
@@ -595,16 +737,19 @@ class PatternMiningManager:
             indexed_merged_patterns = []
             for indexed_bootstrap_pattern, indexed_merged_pattern in candidate_tuples:
                 bootstrap_index, bootstrap_pattern = indexed_bootstrap_pattern
+                bootstrap_pattern_id = bootstrap_pattern.to_string()
                 old_merged_index, old_merged_pattern = indexed_merged_pattern
+                old_merged_pattern_id = old_merged_pattern.to_string()
                 if bootstrap_index.issubset(old_merged_index):
                     continue
                 new_index = old_merged_index.union(bootstrap_index)
                 if new_index in checked_indices:
-                    if new_index in create_indices:
+                    if str(new_index) in creates:
                         new_merged_score = evaluation_scores[str(new_index)]
-                        delete_indices = self.__update_delete_indices(evaluation_scores, bootstrap_index, old_merged_index, new_merged_score, delete_indices)
+                        creates, deletes = self.__update_creates_deletes(
+                            event_type, object_type, evaluation_scores, bootstrap_index, bootstrap_pattern_id, old_merged_index, old_merged_pattern_id, new_merged_score, creates, deletes)
                     continue
-                new_merged_pattern: ExistentialPattern = get_existential_patterns_merge(bootstrap_pattern, old_merged_pattern)
+                new_merged_pattern: ExistentialPattern = get_existential_patterns_merge([bootstrap_pattern, old_merged_pattern])
                 new_merged_pattern_id = new_merged_pattern.to_string()
                 new_merged_evaluation = new_merged_pattern.evaluate(table_manager)
                 new_merged_score = float(new_merged_evaluation["ox:evaluation"].sum()) / total_events
@@ -612,12 +757,13 @@ class PatternMiningManager:
                 if new_merged_score >= self.minSupport:
                     update = True
                     count += 1
-                    create_indices.append(new_index)
+                    creates[str(new_index)] = new_merged_pattern
                     index_to_pattern_id[str(new_index)] = new_merged_pattern_id
                     base_table.loc[:, new_merged_pattern_id] = new_merged_evaluation
                     indexed_merged_patterns.append((new_index, new_merged_pattern))
-                    delete_indices = self.__update_delete_indices(evaluation_scores, bootstrap_index, old_merged_index, new_merged_score, delete_indices)
-                    total_number_of_patterns = len(base_table.columns) - len(delete_indices)
+                    creates, deletes = self.__update_creates_deletes(
+                        event_type, object_type,evaluation_scores, bootstrap_index, bootstrap_pattern_id, old_merged_index, old_merged_pattern_id, new_merged_score, creates, deletes)
+                    total_number_of_patterns = len(base_table.columns) - len(deletes)
                     if total_number_of_patterns >= self.maxInitialPatterns:
                         import warnings
                         warnings.warn(
@@ -626,17 +772,25 @@ class PatternMiningManager:
                         update = False
                         break
                 checked_indices = checked_indices + [new_index]
-        base_table.drop(columns=[index_to_pattern_id[str(delete_index)] for delete_index in delete_indices], inplace=True)
+        #base_table.drop(columns=[index_to_pattern_id[str(delete_index)] for delete_index in deletes], inplace=True)
+        for create_pattern in creates.values():
+            self.__add_interaction_pattern(event_type, object_type, create_pattern)
         return count, base_table
 
-    def __update_delete_indices(self, evaluation_scores, bootstrap_index, old_merged_index, new_merged_score, delete_indices):
+    def __update_creates_deletes(self, event_type, object_type, evaluation_scores, bootstrap_index, bootstrap_pattern_id, old_merged_index, old_merged_pattern_id, new_merged_score, creates, deletes):
         bootstrap_score = evaluation_scores[str(bootstrap_index)]
         old_merged_score = evaluation_scores[str(old_merged_index)]
         if new_merged_score / bootstrap_score > self.patternMergeSubsumptionRatio:
-            delete_indices = delete_indices + [bootstrap_index] \
-                if bootstrap_index not in delete_indices else delete_indices
+            if bootstrap_index not in deletes:
+                deletes = deletes + [bootstrap_index]
+                #self.__delete_interaction_pattern(event_type, object_type, bootstrap_pattern_id)
         if new_merged_score / old_merged_score > self.patternMergeSubsumptionRatio:
-            delete_indices = delete_indices + [old_merged_index] \
-                if old_merged_index not in delete_indices else delete_indices
-        return delete_indices
-
+            if old_merged_index not in deletes:
+                deletes = deletes + [old_merged_index]
+                if len(old_merged_index) == 1:
+                    pass
+                    #self.__delete_interaction_pattern(event_type, object_type, old_merged_pattern_id)
+                else:
+                    pass
+                    #del creates[str(old_merged_index)]
+        return creates, deletes

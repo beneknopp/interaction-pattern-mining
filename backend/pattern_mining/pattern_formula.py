@@ -21,6 +21,9 @@ class PatternFormula:
     def apply(self, table_manager: TableManager) -> DataFrame:
         raise NotImplementedError()
 
+    def get_object_type(self):
+        raise NotImplementedError()
+
     def get_free_variables(self):
         raise NotImplementedError()
 

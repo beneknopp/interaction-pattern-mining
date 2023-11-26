@@ -40,8 +40,10 @@ class EventLogManager:
         session_path = get_session_path()
         file_path = os.path.join(session_path, self.name + "." + extension)
         file.save(file_path)
-        if extension == "sql":
+        if extension == "sqlite":
             self.ocel = read_ocel2_sqlite(file_path)
+            return
         if extension == "xml":
             self.ocel = read_ocel2_xml(file_path)
+            return
         raise ValueError()

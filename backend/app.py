@@ -59,7 +59,8 @@ def search():
     session_key = request.args.get('sessionKey')
     session['session_key'] = session_key
     pamela: PatternMiningManager = PatternMiningManager.load()
-    pamela.search()
+    event_types = ["confirm order"] #pamela.event_types
+    pamela.search_models(event_types)
     pamela.save_evaluation()
     pamela.visualize_results()
     pamela.save()
