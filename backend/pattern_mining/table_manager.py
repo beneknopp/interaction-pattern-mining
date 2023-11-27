@@ -1,13 +1,41 @@
+import os
+import pickle
+
+from flask import session
+
 from pattern_mining.tables.event_index import EventIndex
 from pattern_mining.tables.event_interaction_table import EventInteractionTable
 from pattern_mining.tables.event_objects import EventObjects
 from pattern_mining.tables.event_table import EventTable
 from pattern_mining.tables.o2o_table import O2OTable
 from pattern_mining.tables.object_interaction_table import ObjectInteractionTable
+from utils.session_utils import get_session_path
+
 
 #TODO: get_evaluation_base_table(object_types) that returns a dataframe with columns: event_id and all possible combinations
 # of values for the object types at the respective event
 class TableManager:
+
+    @classmethod
+    def get_name(cls, event_type):
+        session_key = session.get('session_key', None)
+        name = 'tabea_' + event_type + "_" + str(session_key)
+        return name
+
+    def save(self):
+        name = TableManager.get_name(self.eventType)
+        path = get_session_path()
+        path = os.path.join(path, name + ".pkl")
+        with open(path, "wb") as wf:
+            pickle.dump(self, wf)
+
+    @classmethod
+    def load(cls, event_type):
+        name = TableManager.get_name(event_type)
+        session_path = get_session_path()
+        path = os.path.join(session_path, name + ".pkl")
+        with open(path, "rb") as rf:
+            return pickle.load(rf)
 
     def __init__(self, ocel, event_type, object_types):
         '''

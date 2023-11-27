@@ -1,8 +1,12 @@
+import copy
 import time
 import warnings
 from itertools import product
 
 import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 from flask import session
 from matplotlib import pyplot as plt
 from mlxtend.frequent_patterns import apriori, fpmax, association_rules
@@ -46,19 +50,30 @@ class PatternMiningManager:
         session_path = get_session_path()
         path = os.path.join(session_path, name + ".pkl")
         with open(path, "rb") as rf:
-            return pickle.load(rf)
+            loaded_object = pickle.load(rf)
+            try:
+                loaded_object.table_managers = {}
+                for event_type in loaded_object.event_types:
+                    table_manager = TableManager.load(event_type)
+                    loaded_object.table_managers[event_type] = table_manager
+            except FileNotFoundError:
+                pass
+            return loaded_object
 
     def __init__(self, ocel: OCEL,
+                 complementary_mode=False,
+                 merge_mode=False,
                  entropy_attributes_split=False,
                  entropy_split_recursion_levels=4,
                  categorical_search_min_entropy=0.01,
                  categorical_search_max_entropy=2.0,
                  categorical_variables_max_labels=10,
-                 max_initial_patterns=1000,
+                 max_initial_patterns=150,
                  max_bootstrap_pattern_merge_recursion=100000,
                  pattern_merge_subsumption_ratio=0.995,
                  min_split_information_gain=0.1,
-                 min_support=0.05):
+                 min_support=0.05
+        ):
         """
          This class will conduct the pattern mining.
 
@@ -93,9 +108,12 @@ class PatternMiningManager:
                 The minimal support of a pattern to be returned by the pattern mining procedure.
          """
         # self.session_key = session_key
+        self.table_managers = None
         self.sessionKey = session.get('session_key', None)
         self.ocel = ocel
         self.__preprocess_ocel()
+        self.complementaryMode = complementary_mode
+        self.mergeMode = merge_mode
         self.entropyAttributesSplit = entropy_attributes_split
         self.entropySplitRecursionLevels = entropy_split_recursion_levels
         self.categoricalSearchMinEntropy = categorical_search_min_entropy
@@ -110,71 +128,60 @@ class PatternMiningManager:
     def __preprocess_ocel(self):
         events = self.ocel.events
         object_changes = self.ocel.object_changes
-        # TODO: handle timezones
-        events["ocel:timestamp"] = pd.to_datetime(events["ocel:timestamp"].dt.tz_localize(None))
-        object_changes["ocel:timestamp"] = pd.to_datetime(object_changes["ocel:timestamp"].dt.tz_localize(None))
+        # TODO: handle timezones properly and safely
+        try:
+            events["ocel:timestamp"] = pd.to_datetime(events["ocel:timestamp"].dt.tz_localize(None))
+            object_changes["ocel:timestamp"] = pd.to_datetime(object_changes["ocel:timestamp"].dt.tz_localize(None))
+        except:
+            pass
 
-    def visualize_results(self):
-        eval_df = pd.DataFrame(self.evaluation_records)
-        minimal_frequencies_strs = [str(round(x*100)/100) for x in self.minimal_frequencies]
-        for event_type in eval_df["event_type"].values:
-            #support_sums = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_sum_of_itemsets_supports" for min_support_str in min_support_strings]].values.tolist()[0]
-            #entropies = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_supports_entropy" for min_support_str in min_support_strings]].values.tolist()[0]
-            #scores = eval_df[eval_df["event_type"] == event_type][["min_support_" + min_support_str + "_score" for min_support_str in min_support_strings]].values.tolist()[0]
-            scores = eval_df[eval_df["event_type"] == event_type][["partition_construction_approach_scores_" + event_inclusion_step for event_inclusion_step in minimal_frequencies_strs]].values.tolist()[0]
-            viz_table = pd.DataFrame({
-                #"Sum of Supports": support_sums,
-                #"Support Entropy": entropies,
-                "score": scores,
-                "% events included": minimal_frequencies_strs
-            })
-            #plt.plot(viz_table['Minimal Pattern Support'], viz_table["Sum of Supports"], label="Sum of Supports")
-            #plt.plot(viz_table['Minimal Pattern Support'], viz_table['Support Entropy'], label='Support Entropy')
-            plt.plot(viz_table['% events included'], viz_table['score'], label='score')
-            # Add labels and title
-            plt.xlabel('% events included')
-            plt.legend()  # Show legend with labels
-            plt.title('Partition method for event type ' + event_type)
-            path = get_session_path()
-            path = os.path.join(path, event_type + "_eval" + ".png")
-            plt.savefig(path)
-            plt.clf()
+
+    def visualize_base_table_creation_eval(self):
+        base_table_eval = pd.DataFrame(self.base_table_evaluation)
+        scatter_plot = sns.scatterplot(x='number_of_events', y='number_of_relation_types', hue='time', data=base_table_eval,
+                                        palette='gray_r', edgecolor='k', linewidth=1)
+        #cbar = plt.colorbar(scatter_plot.get_children()[0], label='Z Range')
+        plt.xlabel('Number of events')
+        plt.ylabel('Number of relationship types')
+        plt.title('Runtimes for Auxiliary Table Creation')
+
+        path = get_session_path()
+        path = os.path.join(path, "base_table_creation_eval" + ".png")
+        plt.savefig(path)
+        plt.clf()
 
 
     def save_evaluation(self):
         eval = pd.DataFrame(self.evaluation_records)
         path = get_session_path()
+        session_key_str = session.get("session_key", "???")
         for event_type in eval["event_type"].values:
-            #pattern_supports: DataFrame = self.pattern_supports[event_type]
-            #path = get_session_path()
-            #path1 = os.path.join(path, "pattern_supports_" + event_type + ".xlsx")
-            #pattern_supports.to_excel(path1)
-            #path1 = os.path.join(path, "pattern_supports_" + event_type + ".csv")
-            #pattern_supports.to_csv(path1)
             min_support_to_maximal_pattern_supports = self.maximal_pattern_supports[event_type]
             for minimal_support, maximal_pattern_supports in min_support_to_maximal_pattern_supports.items():
                 maximal_pattern_supports: DataFrame
-                #path2 = os.path.join(path, "maximal_pattern_supports_" + event_type + "_" + str(minimal_support) + ".xlsx")
-                #maximal_pattern_supports.to_excel(path2)
-                path2 = os.path.join(path,"maximal_pattern_supports_" + event_type + "_" + str(minimal_support) + ".csv")
+                path2 = os.path.join(path,"maximal_pattern_supports_" + event_type + "_" + str(minimal_support) + "_" + session_key_str + ".csv")
                 maximal_pattern_supports.to_csv(path2)
-            #association_rules: DataFrame = self.association_rules[event_type]
-            #path3 = os.path.join(path, "association_rules_" + event_type + ".xlsx")
-            #association_rules.to_excel(path3)
-        eval_path = os.path.join(path, "evaluation.xlsx")
+        eval_path = os.path.join(path, "evaluation_" + session_key_str + ".xlsx")
         eval.to_excel(eval_path)
         config_str = "maxInitialPatterns: " + str(self.maxInitialPatterns) +"\n"
         config_str += "maxBootstrapPatternMergeRecursion: " + str(self.maxBootstrapPatternMergeRecursion) + "\n"
-        eval_config_path = os.path.join(path, "evaluation_config.txt")
+        config_str += "complementaryMode: " + str(self.complementaryMode) + "\n"
+        eval_config_path = os.path.join(path, "evaluation_config_" + session_key_str + ".txt")
         with open(eval_config_path, "w") as wf:
             wf.write(config_str)
 
     def save(self):
         name = PatternMiningManager.get_name()
+        if self.table_managers is not None:
+            table_manager: TableManager
+            for table_manager in self.table_managers.values():
+                table_manager.save()
         path = get_session_path()
         path = os.path.join(path, name + ".pkl")
+        self_copy = copy.copy(self)
+        self_copy.table_managers = None
         with open(path, "wb") as wf:
-            pickle.dump(self, wf)
+            pickle.dump(self_copy, wf)
 
     def initialize(self):
         self.__preprocess_event_log()
@@ -192,6 +199,9 @@ class PatternMiningManager:
         return search_plans
 
     def __preprocess_event_log(self):
+        self.event_types = sorted(list(set(self.ocel.events["ocel:activity"].values)))
+        self.object_types = sorted(list(set(self.ocel.objects["ocel:type"].values)))
+        self.objects = self.ocel.objects
         self.__preprocess_attributes()
         self.__preprocess_relations()
 
@@ -201,14 +211,17 @@ class PatternMiningManager:
         self.__determine_attribute_data_types()
 
     def __preprocess_relations(self):
+        self.number_of_object_to_object_relation_types = {
+            event_type: 0 for event_type in self.event_types
+        }
+        self.number_of_event_to_object_relation_types = {
+            event_type: 0 for event_type in self.event_types
+        }
         self.__load_event_type_object_type_info()
         self.__load_event_type_object_relations_info()
         self.__load_event_type_object_to_object_relations_info()
 
     def __load_event_type_object_type_info(self):
-        self.event_types = sorted(list(set(self.ocel.events["ocel:activity"].values)))
-        self.object_types = sorted(list(set(self.ocel.objects["ocel:type"].values)))
-        self.objects = self.ocel.objects
         e2o = self.ocel.relations
         self.event_types_object_types = e2o.groupby('ocel:activity')['ocel:type'].agg(lambda x: list(set(x))).to_dict()
         self.event_type_object_types_variability = e2o.groupby('ocel:activity') \
@@ -284,6 +297,7 @@ class PatternMiningManager:
             subgroups = group.groupby('ocel:type')
             for object_type, subgroup in subgroups:
                 qualifiers = list(set(subgroup['ocel:qualifier'].values))
+                self.number_of_event_to_object_relation_types[event_type] += len(qualifiers)
                 self.event_type_object_relations[event_type][object_type] = qualifiers
 
     def __load_event_type_object_to_object_relations_info(self):
@@ -311,6 +325,7 @@ class PatternMiningManager:
                 qualifiers = list(set(subgroup['o2o_qualifier']))
                 object_type_x, object_type_y = key
                 self.event_type_object_to_object_relations[event_type][object_type_x][object_type_y] = qualifiers
+                self.number_of_object_to_object_relation_types[event_type] += len(qualifiers)
             # multi-relations between type x and type y: objects of type x can habe multiple relations to objects of type y
             self.event_type_object_to_object_multi_relations[event_type] = {
                 object_type_x: {
@@ -466,7 +481,7 @@ class PatternMiningManager:
         event_type_relations = relations[relations["ocel:activity"] == event_type]
         et_ot_cardinalities = event_type_relations.groupby(['ocel:eid', 'ocel:type'])['ocel:oid'].nunique()
         ot_cardinalities = et_ot_cardinalities.groupby('ocel:type').value_counts(normalize=True). \
-            unstack(fill_value=0)#.to_dict(orient='index')
+            unstack(fill_value=0)
         np.seterr(divide='ignore')
         ot_cardinalities["entropy"] = ot_cardinalities.iloc[:, 1:].apply(lambda row: -np.sum(row * np.log2(row)), axis=1)
         ot_cardinalities = ot_cardinalities[
@@ -498,10 +513,46 @@ class PatternMiningManager:
             self.variable_prefixes[object_type] = prefix
             used_prefixes.add(prefix)
 
+    def load_tables(self, event_types):
+        self.table_managers = {}
+        self.base_table_creation_times = {}
+        self.base_table_evaluation = {
+            "event_type": [],
+            "number_of_events": [],
+            "number_of_relation_types": [],
+            "number_of_object_to_object_relation_types": [],
+            "number_of_event_to_object_relation_types": [],
+            "time": []
+        }
+        for i in range(len(event_types)):
+            event_type = event_types[i]
+            event_object_types = self.event_types_object_types[event_type]
+            print("Starting to load auxiliary tables for event type '" + event_type + "', " + str(i) + "/" + str(len(event_types)) + ".")
+            import time
+            start = time.time()
+            table_manager = TableManager(self.ocel, event_type, event_object_types)
+            self.table_managers[event_type] = table_manager
+            end = time.time()
+            runtime = end - start
+            print("Finished loading auxiliary tables for event type '" + event_type + "', " + str(i) + "/" + str(
+                len(event_types)) + ", time: " + str(runtime))
+            number_of_object_to_object_relations = self.number_of_object_to_object_relation_types[event_type]
+            number_of_event_to_object_relations = self.number_of_event_to_object_relation_types[event_type]
+            self.base_table_creation_times[event_type] = runtime
+            self.base_table_evaluation["event_type"].append(event_type)
+            self.base_table_evaluation["number_of_events"].append(len(table_manager.get_event_index()))
+            self.base_table_evaluation["number_of_object_to_object_relation_types"].append(number_of_object_to_object_relations)
+            self.base_table_evaluation["number_of_event_to_object_relation_types"].append(number_of_event_to_object_relations)
+            self.base_table_evaluation["number_of_relation_types"].append(
+                number_of_object_to_object_relations + number_of_event_to_object_relations)
+            self.base_table_evaluation["time"].append(runtime)
+
+
     def search_models(self, event_types):
         self.evaluation_records = {
             "event_type": [],
             "run": [],
+            "number_of_initial_patterns": [],
             "recall": [],
             "precision": [],
             "discrimination": [],
@@ -509,6 +560,7 @@ class PatternMiningManager:
             "rule_splits": [],
             "time": []
         }
+
         self.minimal_frequencies = [0.05*(i) for i in range(21)]
         pattern: PatternFormula
         self.pattern_supports = {}
@@ -516,39 +568,31 @@ class PatternMiningManager:
         self.anti_patterns = {}
         self.base_tables = {}
         self.models = {}
-        for event_type in event_types:
+        for i in range(len(event_types)):
+            event_type = event_types[i]
             event_object_types = self.event_types_object_types[event_type]
-            print("Starting for event type '" + event_type + "'.")
-            table_manager = TableManager(self.ocel, event_type, event_object_types)
+            print("Starting to search patterns for event type '" + event_type + "', " + str(i) + "/" + str(len(event_types)) + ".")
+            import time
+            start = time.time()
+            table_manager = self.table_managers[event_type]
             base_table = self.__make_bootstrap_table(event_type, table_manager)
             if len(base_table.columns) > self.maxInitialPatterns:
                 raise RuntimeError ("More bootstrap patterns found than allowed by the 'max_initial_patterns' "
                                       "parameter.")
-            base_table = self.__merge_interaction_patterns(event_type, base_table, table_manager)
-            base_table = self.__add_anti_patterns(event_type, base_table)
-            model = self.__make_models(event_type, base_table)
-
+            if self.mergeMode:
+                base_table = self.__merge_interaction_patterns(event_type, base_table, table_manager)
+            if self.complementaryMode:
+                base_table = self.__add_anti_patterns(event_type, base_table)
+            self.number_of_initial_patterns = len(base_table.columns)
+            self.number_of_events = len(base_table)
+            self.__make_models(event_type, base_table)
             self.base_tables[event_type] = base_table
-            print("Finished for event type '" + event_type + "'.")
-
-
-    def __get_boolean_table_average_entropy(self, table: DataFrame, columns):
-        average_entropy = 0
-        n = len(table)
-        for col in columns:
-            boolean_sum = table[col].sum()
-            if boolean_sum == n or boolean_sum == 0:
-                entropy = 0
-            else:
-                entropy = -(np.log2(boolean_sum / n) * boolean_sum / n + np.log2((n - boolean_sum) / n) * (n - boolean_sum) / n)
-            average_entropy += entropy
-        return average_entropy / n
+            print("Finished searching patterns for event type '" + event_type + "'.")
 
     def __make_bootstrap_table(self, event_type: str, table_manager: TableManager) -> DataFrame:
         base_table = table_manager.get_event_index()
         basic_patterns = self.searched_basic_patterns[event_type]
         interaction_patterns = self.searched_interaction_patterns[event_type]
-        self.evaluation_records["event_type"].append(event_type)
         for pattern_id, pattern in basic_patterns.items():
             evaluation = pattern.evaluate(table_manager)
             base_table.loc[:, pattern_id] = evaluation
@@ -601,24 +645,41 @@ class PatternMiningManager:
     def __make_fpgrowth_models(self, event_type, base_table):
         path = get_session_path()
         object_types = self.event_types_object_types[event_type]
+        number_of_events = len(base_table)
         for i in range(len(self.minimal_frequencies)):
             if i == 0:
-                minimal_frequency = 1 / (len(base_table) + 1)
+                minimal_frequency = 1 / (number_of_events + 1)
+                minimal_frequency_str = "0.0"
             elif i == len(self.minimal_frequencies) - 1:
-                minimal_frequency = 1 - (len(base_table) + 1)
+                minimal_frequency = 1 - (1 / (number_of_events + 1))
+                minimal_frequency_str = "1.0"
             else:
                 minimal_frequency = self.minimal_frequencies[i]
-            minimal_frequency_str = str(round(minimal_frequency*100)/100)
+                minimal_frequency_str = str(round(minimal_frequency*100)/100)
+            import time
+            start = time.time()
             pattern_supports = fpmax(base_table, min_support=minimal_frequency, use_colnames=True)
+            end = time.time()
+            mining_time = end - start
             pattern_supports["itemsets"] = pattern_supports["itemsets"].apply(lambda x: sorted(x))
-            model = Model(pattern_supports, base_table, event_type, object_types)
+            model = Model(pattern_supports["itemsets"], base_table, event_type, object_types)
             splitter_groups = self.__get_splitter_groups(event_type)
-            model.make_splits(self.minSplitInformationGain, splitter_groups)
-            simplified_patterns = self.__simplify_mining_results(event_type, pattern_supports)
-            supports_sum = sum(simplified_patterns["support"])
-            supports_entropy = simplified_patterns.iloc[:, :1].apply(lambda row: -(row / supports_sum * np.log2(row))).sum()[0]
-            total_complexity = self.__get_total_complexity(simplified_patterns)
-            pattern_complexity = self.__get_pattern_complexity(simplified_patterns)
+            split_paths = model.make_splits(self.minSplitInformationGain, splitter_groups)
+            simplified_patterns = pattern_supports#self.__simplify_mining_results(event_type, pattern_supports)
+            precision = model.get_precision()
+            recall = model.get_recall()
+            discrimination = model.get_discrimination()
+            model.partitioner = simplified_patterns["itemsets"]
+            simplicity = model.get_simplicity()
+            self.evaluation_records["event_type"].append(event_type)
+            self.evaluation_records["run"].append("min_freq_" + minimal_frequency_str)
+            self.evaluation_records["recall"].append(recall)
+            self.evaluation_records["precision"].append(precision)
+            self.evaluation_records["discrimination"].append(discrimination)
+            self.evaluation_records["simplicity"].append(simplicity)
+            self.evaluation_records["rule_splits"].append(split_paths.to_string())
+            self.evaluation_records["number_of_initial_patterns"].append(self.number_of_initial_patterns)
+            self.evaluation_records["time"].append(mining_time)
             path1 = os.path.join(path, "pattern_supports_" + event_type + "_min_freq_" + minimal_frequency_str + ".xlsx")
             simplified_patterns.to_excel(path1)
 
@@ -626,14 +687,14 @@ class PatternMiningManager:
         patterns = self.object_categorical_attribute_patterns[event_type]
         split_patterns = []
         for object_type, cat_att_to_patts in patterns.items():
-            cat_patts = []
             for cat_att, patts in cat_att_to_patts.items():
-                split_patterns[object_type][cat_att] = []
+                cat_patts = []
                 for patt in patts:
-                    anti_patt = self.anti_patterns[event_type][patt.to_string()]
                     cat_patts.append(patt)
-                    cat_patts.append(anti_patt)
-            split_patterns.append((cat_att, cat_patts))
+                    if self.complementaryMode:
+                        anti_patt = self.anti_patterns[event_type][patt.to_string()]
+                        cat_patts.append(anti_patt)
+                split_patterns.append((cat_att, cat_patts))
         return split_patterns
 
     def __simplify_mining_results(self, event_type, pattern_supports):
@@ -794,3 +855,19 @@ class PatternMiningManager:
                     pass
                     #del creates[str(old_merged_index)]
         return creates, deletes
+
+    def save_base_table_evaluation(self):
+        base_table_eval = pd.DataFrame(self.base_table_evaluation)
+        path = get_session_path()
+        session_key_str = session.get("session_key", "???")
+        eval_path = os.path.join(path, "base_table_evaluation_" + session_key_str + ".xlsx")
+        base_table_eval.to_excel(eval_path)
+        config_str = "maxInitialPatterns: " + str(self.maxInitialPatterns) +"\n"
+        config_str += "maxBootstrapPatternMergeRecursion: " + str(self.maxBootstrapPatternMergeRecursion) + "\n"
+        config_str += "complementaryMode: " + str(self.complementaryMode) + "\n"
+        eval_config_path = os.path.join(path, "base_table_eval_config_" + session_key_str + ".txt")
+        with open(eval_config_path, "w") as wf:
+            wf.write(config_str)
+
+    def visualize_results(self):
+        pass

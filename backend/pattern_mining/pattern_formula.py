@@ -14,8 +14,13 @@ class PatternFormula:
         event_index["ox:evaluation"] = False
         # apply might not return an outcome for every index (if the object domain is empty)
         evaluation = self.apply(table_manager)
-        evaluation = evaluation.set_index('ocel:eid')['ox:evaluation'].squeeze()
-        event_index.update(evaluation)
+        evaluation = evaluation.set_index('ocel:eid')['ox:evaluation']
+        if len(evaluation) > 1:
+            evaluation = evaluation.squeeze()
+        try:
+            event_index.update(evaluation)
+        except:
+            print("")
         return event_index
 
     def apply(self, table_manager: TableManager) -> DataFrame:

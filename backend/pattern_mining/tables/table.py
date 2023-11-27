@@ -5,8 +5,10 @@ from pm4py import OCEL
 
 
 def create_object_evolutions_table(object_table, event_table, object_change_table) -> DataFrame:
-    mintime = min(min(event_table["ocel:timestamp"].values), min(object_change_table["ocel:timestamp"].values))
-    maxtime = max(max(event_table["ocel:timestamp"].values), max(object_change_table["ocel:timestamp"].values))
+    change_times = object_change_table["ocel:timestamp"].values
+    event_times = event_table["ocel:timestamp"].values
+    mintime = min(min(event_times), min(change_times)) if len(change_times) > 0 else min(event_times)
+    maxtime = max(max(event_times), max(change_times)) if len(change_times) > 0 else max(event_times)
     maxtime = maxtime + np.timedelta64(365, 'D')
     changetimes = object_change_table["ocel:timestamp"].values
     if len(changetimes) > 0:
@@ -58,7 +60,9 @@ def create_object_interaction_table(events, e2o, o2o, object_evolutions) -> Data
     df = pd.merge(df, e2o, on='ocel:eid', how='inner') \
         .drop("ocel:qualifier", axis=1)
     # create rows corresponding to pairs of objects that interact
-    df = pd.merge(df, df, on="ocel:eid", how="inner")
+    df = pd.merge(df, df, on="ocel:eid", how="inner", suffixes=('_x', '_y'))
+    # reduce load a bit by not keeping every pair twice
+    df = df[df['ocel:oid_y'] <= df['ocel:oid_x']]
     df = df \
         .rename(columns={'ocel:timestamp_x': 'ocel:timestamp'}) \
         .drop("ocel:timestamp_y", axis=1)

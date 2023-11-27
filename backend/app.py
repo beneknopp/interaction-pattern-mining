@@ -52,6 +52,18 @@ def add_pattern():
 def delete_pattern():
     raise NotImplementedError()
 
+@app.route('/load-tables', methods=['GET'])
+@cross_origin()
+def load_tables():
+    session_key = request.args.get('sessionKey')
+    session['session_key'] = session_key
+    pamela: PatternMiningManager = PatternMiningManager.load()
+    event_types = pamela.event_types
+    pamela.load_tables(event_types)
+    pamela.save_base_table_evaluation()
+    pamela.visualize_base_table_creation_eval()
+    pamela.save()
+    return Response.get(True)
 
 @app.route('/search', methods=['GET'])
 @cross_origin()
@@ -59,7 +71,7 @@ def search():
     session_key = request.args.get('sessionKey')
     session['session_key'] = session_key
     pamela: PatternMiningManager = PatternMiningManager.load()
-    event_types = ["confirm order"] #pamela.event_types
+    event_types = pamela.event_types
     pamela.search_models(event_types)
     pamela.save_evaluation()
     pamela.visualize_results()

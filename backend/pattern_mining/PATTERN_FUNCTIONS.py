@@ -211,10 +211,10 @@ class E2o_r(PatternFunction):
         variable_id = arg.variableId
         object_type = arg.objectType
         interaction_table = table_manager.get_event_interaction_table()
-        interaction_table["r_counts"] = interaction_table.apply(
-            lambda row: 1 if row["ocel:qualifier"] == self.qual and row["ocel:type"] == object_type else 0, axis=1)
-        evaluated = interaction_table.groupby(["ocel:eid","ocel:oid"])["r_counts"].agg(
-            lambda x: (x.sum() > 0)).reset_index(name="ox:evaluation")
+        interaction_table["is_r"] = (interaction_table["ocel:qualifier"] == self.qual)
+        interaction_table["is_type"] = (interaction_table["is_r"] == object_type)
+        interaction_table["is_r_of_type"] = (interaction_table["is_r"] & interaction_table["is_type"])
+        evaluated = interaction_table.groupby(["ocel:eid","ocel:oid"])['is_r_of_type'].max().reset_index(name="ox:evaluation")
         evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
         return evaluated[["ocel:eid", variable_id, "ox:evaluation"]]
 
