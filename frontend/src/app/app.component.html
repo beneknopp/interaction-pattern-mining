@@ -1,0 +1,138 @@
+<head>
+  <title>Your Page Title</title>
+</head>
+
+<body>
+
+  <div class="top-container" role="banner">
+    <img height="100" src="/assets/img/ox_logo.jpg" />
+    <h1 class="caption">Mining Interaction Patterns from Object-Centric Event Logs</h1>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="columns-container">
+    <div class="column column-25">
+      <div class="content">
+        <div class="button-container">
+          <button class="button" (click)="fileInput.click()">
+            <input #fileInput type="file" class="file-upload" (change)="onFileSelected($event)" style="display:none;">
+            Upload Event Log (.sqlite)
+          </button>
+        </div>
+        <!--<div>
+          <label>Uploaded?</label>
+          <span *ngIf="logUploaded">&#10003;</span>
+        </div>-->
+      </div>
+      <div class="content">
+        <select id="selectOptions" [(ngModel)]="selectedEventTypes" name="options" multiple class="event-type-selector"
+          (change)="onSelectionChange($event)" [disabled]="eventTypesConfirmed">
+          <option *ngFor="let option of eventTypes" [value]="option">{{ option }}</option>
+        </select>
+        <div class="button-container">
+          <button class="button" (click)="onConfirmEventTypes()" [disabled]="!logUploaded">
+            Confirm Event Types
+          </button>
+        </div>
+        <div>
+          <label>Event Types Confirmed?</label>
+          <span *ngIf="eventTypesConfirmed">&#10003;</span>
+        </div>
+      </div>
+      <div class="content">
+        <div class="button-container">
+          <button class="button" (click)="loadSearchPlans()" [disabled]="!eventTypesConfirmed">
+            Load Default Search Plans
+          </button>
+        </div>
+        <div>
+          <label>Search Plans Loaded?</label>
+          <span *ngIf="searchPlansLoaded">&#10003;</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="column column-25">
+      <div class="content">
+        <h3>Pattern Selection</h3>
+        <div class="pattern-select-dropdowns">
+          <div class="pattern-select-dropdown">
+            <label for="pattern-select-event-type">Event Type</label>
+            <select [(ngModel)]="editedEventType" id="pattern-select-event-type" class="pattern-select-dropdown"
+              (change)="onChangePatternEditDropdown()" [disabled]="!eventTypesConfirmed">
+              <option *ngFor="let option of selectedEventTypes" [value]="option">{{ option }}</option>
+            </select>
+          </div>
+          <div class="pattern-select-dropdown">
+            <label for="pattern-select-pattern-type">Pattern Type</label>
+            <select [(ngModel)]="editedPatternType" id="pattern-select-pattern-type" class="pattern-select-dropdown"
+              (change)="onChangePatternEditDropdown()" [disabled]="!eventTypesConfirmed || !editedEventType">
+              <option *ngFor="let option of [
+              'basic_patterns',
+              'interaction_patterns',
+              'custom_patterns'
+            ]" [value]="option">{{ option }}</option>
+            </select>
+          </div>
+          <div class="pattern-select-dropdown">
+            <label for="pattern-select-object-type">Object Type</label>
+            <select [(ngModel)]="editedObjectType" (change)="onChangePatternEditDropdown()"
+              class="pattern-select-dropdown" [disabled]="isObjectTypeSelectionDisabled()">
+              <option *ngFor="let option of getEditedObjectTypeOptions()" [value]="option">{{
+                option
+                }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="pattern-selector-container">
+          <select id="selectOptions" *ngIf="!!filteredSearchPlans && !!editedEventType || !!editedPatternType"
+            [(ngModel)]="selectedPatterns" name="options" multiple (change)="onChangeSelectedPatterns()"
+            class="pattern-selector">
+            <option *ngFor="let pattern of getPatternOptions()" [value]="pattern">
+              {{ pattern }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div class="content">
+        <h3>Pattern Builder</h3>
+        <div class="pattern-builder-container">
+          <input [(ngModel)]="customPatternDescription" placeholder="Enter text" class="pattern-builder"
+            [disabled]="!editedEventType">
+          <button (click)="onConfirmCustomPattern()" class="pattern-builder-confirm"
+            [disabled]="!editedEventType">Confirm</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <div>
+          <label>
+            <input type="checkbox" [(ngModel)]="complementaryMode"> Complementary Mode
+          </label>
+        </div>
+        <div>
+          <label>
+            <input type="checkbox" [(ngModel)]="mergeMode"> Merge Mode
+          </label>
+        </div>
+        <div class="button-container">
+          <button class="button" (click)="startSearch()" [disabled]="!logUploaded">
+            Start Search
+          </button>
+        </div>
+        <div>
+          <label>Search complete?</label>
+          <span *ngIf="searchComplete">&#10003;</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="column column-50">
+      <app-model-view 
+      [modelMined]="modelMined"
+      [eventTypes]="selectedEventTypes" [objectTypes]="uploadResponse?.event_type_object_types">
+      </app-model-view>
+    </div>
+  </div>
+</body>

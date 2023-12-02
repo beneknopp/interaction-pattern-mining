@@ -1,0 +1,118 @@
+body {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.top-container {
+    height: 120px;
+    width: 100%;
+    background-color: #FDFEF6; /* Adjust background color as needed */
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: left;
+}
+
+.top-container img {
+    height: 100px;
+    margin-right: 10px;
+}
+
+.caption {
+    display: inline-block;
+    vertical-align: middle;
+    line-height: normal;
+    font-size: 36px;
+    color: #AB4145;
+}
+
+.columns-container {
+    display: flex;
+    width: 100%;
+}
+
+.column {
+    box-sizing: border-box;
+    border: 1px solid #ccc; /* Add borders or adjust styles as needed */
+    overflow: hidden;
+}
+
+.column-25 {
+    flex-basis: 25%;
+}
+
+.column-50 {
+    flex-basis: 50%;
+}
+
+/* Adjust styles as needed */
+.content {
+    padding: 20px;
+    text-align: left;
+}
+
+.event-type-selector {
+    width: 100%;
+    min-height: 200px;
+    margin-bottom: 20px;
+}
+
+.pattern-select-dropdowns {
+    display: flex;
+}
+
+.pattern-select-dropdown {
+    width: 100%;
+    margin-right: 10px;
+    margin-bottom: 5px;
+}
+
+.pattern-selector-container {
+    width: 100%;
+    min-height: 200px;
+    outline: 2px solid black;
+}
+
+.pattern-selector {
+    width: 100%;
+    min-height: 200px;
+}
+
+.pattern-builder-container {
+    display: flex;
+    width: 100%;
+    height: 40px;
+}
+
+.pattern-builder {
+    width: 80%;
+    height: 35px;
+    margin: 5px;
+}
+
+.pattern-builder-confirm {
+    width: 19%;
+    height: 40px;
+    margin-top: 5px;
+}
+
+.button-container {
+    width: 100%;
+    margin: 12px;
+    transition: all 0.2s ease-in-out;
+    box-sizing: border-box;
+}
+
+.button-container button {
+    width: calc(100% - 24px);;
+    border: none;
+    padding: 10px;
+    background-color: #a5a5a5;
+    color: white;
+}
+
+.button-container:hover:not([disabled]) {
+    transform: translateY(-3px);
+    box-shadow: 5px 5px 10px rgba(128, 128, 128, 0.35);
+}
