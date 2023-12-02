@@ -32,6 +32,12 @@ class FreePatternFormula(PatternFormula):
     def copy(self):
         return FreePatternFormula(self.freePattern.copy())
 
+    def is_well_formed(self, bound_variables=None):
+        if bound_variables is None:
+            bound_variables = []
+        bound_variables_ids = map(lambda v: v.variableId, bound_variables)
+        return all(var.variableId in bound_variables_ids for var in self.freePattern.get_free_variables())
+
     def to_string(self):
         return self.freePattern.to_string()
 
@@ -60,6 +66,11 @@ class Negation(PatternFormula):
         evaluation_table = subformula_evaluation_table[:]
         evaluation_table["ox:evaluation"] = ~evaluation_table["ox:evaluation"].astype(bool)
         return evaluation_table
+
+    def is_well_formed(self, bound_variables=None):
+        if bound_variables is None:
+            bound_variables = []
+        return self.patternFormula.is_well_formed(bound_variables)
 
     def to_string(self):
         return "not(" + self.patternFormula.to_string() + ")"
@@ -101,6 +112,11 @@ class Disjunction(PatternFormula):
 
     def copy(self):
         return Disjunction(self.patternFormula1.copy(), self.patternFormula2.copy())
+
+    def is_well_formed(self, bound_variables=None):
+        if bound_variables is None:
+            bound_variables = []
+        return self.patternFormula1.is_well_formed(bound_variables) and self.patternFormula2.is_well_formed(bound_variables)
 
     def to_string(self):
         return "or(" + self.patternFormula1.to_string() + "," + self.patternFormula2.to_string() + ")"
@@ -145,6 +161,11 @@ class Conjunction(PatternFormula):
     def copy(self):
         return Conjunction(self.patternFormula1.copy(), self.patternFormula2.copy())
 
+    def is_well_formed(self, bound_variables=None):
+        if bound_variables is None:
+            bound_variables = []
+        return self.patternFormula1.is_well_formed(bound_variables) and self.patternFormula2.is_well_formed(bound_variables)
+
     def to_string(self):
         return "and(" + self.patternFormula1.to_string() + "," + self.patternFormula2.to_string() + ")"
 
@@ -180,6 +201,15 @@ class ExistentialPattern(PatternFormula):
     def copy(self):
         return ExistentialPattern(self.quantifiedVariable, self.patternFormula.copy())
 
+    def is_well_formed(self, bound_variables=None):
+        if bound_variables is None:
+            bound_variables = []
+        v: ObjectVariableArgument
+        if any(v.variableId == self.quantifiedVariable.variableId for v in bound_variables):
+            return False
+        bound_variables = bound_variables + [self.quantifiedVariable]
+        return self.patternFormula.is_well_formed(bound_variables)
+
     def to_string(self):
         return "ex(" + self.quantifiedVariable.to_string() + "," + self.patternFormula.to_string() + ")"
 
@@ -209,6 +239,15 @@ class UniversalPattern(PatternFormula):
     def apply(self, table_manager: TableManager):
         return Negation(ExistentialPattern(self.quantifiedVariable, Negation(self.patternFormula.copy()))) \
             .apply(table_manager)
+
+    def is_well_formed(self, bound_variables=None):
+        if bound_variables is None:
+            bound_variables = []
+        v: ObjectVariableArgument
+        if any(v.variableId == self.quantifiedVariable.variableId for v in bound_variables):
+            return False
+        bound_variables = bound_variables + [self.quantifiedVariable]
+        return self.patternFormula.is_well_formed(bound_variables)
 
     def to_string(self):
         return "all(" + self.quantifiedVariable.to_string() + "," + self.patternFormula.to_string() + ")"

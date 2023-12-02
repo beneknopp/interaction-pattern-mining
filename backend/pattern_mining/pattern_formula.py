@@ -17,16 +17,16 @@ class PatternFormula:
         evaluation = evaluation.set_index('ocel:eid')['ox:evaluation']
         if len(evaluation) > 1:
             evaluation = evaluation.squeeze()
-        try:
-            event_index.update(evaluation)
-        except:
-            print("")
+        event_index.update(evaluation)
         return event_index
 
     def apply(self, table_manager: TableManager) -> DataFrame:
         raise NotImplementedError()
 
     def get_object_type(self):
+        raise NotImplementedError()
+
+    def get_object_types(self):
         raise NotImplementedError()
 
     def get_free_variables(self):
@@ -37,6 +37,10 @@ class PatternFormula:
 
     def copy(self):
         raise NotImplementedError()
+
+    def is_well_formed(self, bound_variables):
+        raise NotImplementedError()
+
 
     def to_string(self):
         raise NotImplementedError()

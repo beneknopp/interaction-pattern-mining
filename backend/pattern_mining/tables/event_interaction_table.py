@@ -1,7 +1,8 @@
 import pandas as pd
 from pm4py import OCEL
 
-from pattern_mining.tables.table import Table, create_event_interaction_table, create_object_evolutions_table
+from pattern_mining.tables.object_evolutions_table import ObjectEvolutionsTable
+from pattern_mining.tables.table import Table
 
 
 class EventInteractionTable(Table):
@@ -17,17 +18,22 @@ class EventInteractionTable(Table):
         super().__init__(event_type)
         self.objectTypes = object_types
 
-    def create(self, ocel: OCEL):
+    def create(self, ocel: OCEL, object_evolutions_table: ObjectEvolutionsTable):
         # TODO: Refactor more
         all_events = ocel.events[:]
         all_e2o = ocel.relations[:]
-        all_objects = ocel.objects[:]
-        all_object_changes = ocel.object_changes[:]
         events = all_events[all_events['ocel:activity'] == self.eventType]
         e2o = pd.merge(all_e2o, events, left_on='ocel:eid', right_on='ocel:eid', how='inner')
         e2o = e2o[["ocel:eid", "ocel:oid", "ocel:qualifier", "ocel:type"]]
-        objects = all_objects[all_objects['ocel:type'].isin(self.objectTypes)]
-        object_changes = all_object_changes[all_object_changes['ocel:type'].isin(self.objectTypes)]
-        object_evolutions = create_object_evolutions_table(objects, events, object_changes)
-        table = create_event_interaction_table(events, e2o, object_evolutions)
-        self.table = table
+        object_evolutions = object_evolutions_table.table
+        event_interactions = events[:]
+        # extend with information about related objects
+        event_interactions = pd.merge(event_interactions, e2o, on='ocel:eid', how='inner')
+        # create rows corresponding to pairs of objects that interact
+        event_attributes = [col for col in event_interactions.columns if not col.startswith('ocel:')]
+        event_interactions = event_interactions.drop(event_attributes, axis=1)
+        event_interactions = event_interactions.merge(object_evolutions, on=["ocel:oid"], how="inner")
+        event_interactions = event_interactions[(event_interactions['ocel:timestamp'] >= event_interactions['ox:from'])
+                                                & (event_interactions['ocel:timestamp'] < event_interactions['ox:to'])]
+        event_interactions = event_interactions.drop(["ox:from", "ox:to"], axis=1)
+        self.table = event_interactions
