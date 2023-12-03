@@ -642,13 +642,18 @@ class PatternMiningManager:
         base_table = table_manager.get_event_index()
         basic_patterns = self.searched_basic_patterns[event_type]
         interaction_patterns = self.searched_interaction_patterns[event_type]
+        custom_patterns = self.custom_patterns[event_type]
+        searched_patterns = {}
         for pattern_id, pattern in basic_patterns.items():
-            evaluation = pattern.evaluate(table_manager)
-            base_table.loc[:, pattern_id] = evaluation
+            searched_patterns[pattern_id] = pattern
         for object_type, patterns in interaction_patterns.items():
             for pattern_id, pattern in patterns.items():
-                evaluation = pattern.evaluate(table_manager)
-                base_table.loc[:, pattern_id] = evaluation
+                searched_patterns[pattern_id] = pattern
+        for pattern_id, pattern in custom_patterns.items():
+            searched_patterns[pattern_id] = pattern
+        for pattern_id, pattern in searched_patterns.items():
+            evaluation = pattern.evaluate(table_manager)
+            base_table.loc[:, pattern_id] = evaluation
         return base_table
 
     def __merge_interaction_patterns(self, event_type, base_table: DataFrame, table_manager: TableManager):
@@ -809,12 +814,6 @@ class PatternMiningManager:
             self.searched_interaction_patterns[event_type][variable_type][merged_pattern_id] = merged_pattern
         return merged_descriptor
 
-    def __get_total_complexity(self, pattern_supports):
-        return len(set([pattern_id for descriptor in pattern_supports["itemsets"].values for pattern_id in descriptor]))
-
-    def __get_pattern_complexity(self, pattern_supports):
-        return sum(pattern_supports["support"] * pattern_supports["itemsets"].apply(lambda x: len(x) + 1))
-
     def __merge_variable_types_existential_patterns(self, patterns, base_table, table_manager, event_type, object_type):
         existential_patterns = list(filter(lambda pat: isinstance(pat, ExistentialPattern), patterns))
         bootstrap_patterns = list(map(lambda pat: ({pat[0]}, pat[1]), enumerate(existential_patterns)))
@@ -974,23 +973,21 @@ class PatternMiningManager:
         self.custom_patterns[event_type][pattern_id] = pattern
         self.patterns_by_ids[pattern_id] = pattern
 
-    def get_model_response(self, event_type, object_types=None):
-        if object_types is None:
-            object_types = self.object_types
-        model: Model = self.models[event_type]
-        partition_info = model.postprocessed_pattern_supports
+    def __partition_info_response(self, partition_info, object_types):
         keep = partition_info["object-type"].isin(object_types) | partition_info["object-type"].isna()
         partition_info = partition_info[keep]
-        partition_info = partition_info.sort_values(by="support")
-        groups = partition_info.groupby("partition-id")
+        partition_info.sort_values(by="support", ascending=False, inplace=True)
+        groups = partition_info.groupby("partition-id", sort=False)
         resp = {}
+        i = 0
         for partition_id, group in groups:
-            group = group.sort_values(by="pattern-id")
             pattern_ids = group["pattern-id"].to_list()
             pretty_patterns = group["pattern"].apply(
-                lambda p: "$$\\mathit{" + p.to_TeX() + "}$$").to_list()
+                lambda p: self.__get_formula_TeX(p)).to_list()
+            pretty_patterns = list(set(pretty_patterns))
+            pretty_patterns = sorted(pretty_patterns)
             support = group["support"].to_list()[0]
-            resp[int(partition_id)] = {
+            resp[i] = {
                 "pattern_ids": pattern_ids,
                 "pretty_pattern_ids": pretty_patterns,
                 "support": support,
@@ -999,8 +996,50 @@ class PatternMiningManager:
             for object_type in object_types:
                 ot_arguments = group[group["object-type"] == object_type]["arguments"]
                 ot_arguments = reduce(lambda x, y: x.union(y), ot_arguments)
-                resp[partition_id]["arguments"][object_type] = list(ot_arguments)
+                resp[i]["arguments"][object_type] = list(ot_arguments)
+            i = i + 1
         return resp
+
+    def get_model_response(self, event_type, object_types=None):
+        if object_types is None:
+            object_types = self.object_types
+        model: Model = self.models[event_type]
+        partition_info = model.postprocessed_pattern_supports
+        return self.__partition_info_response(partition_info, object_types)
+
+
+    def get_split_response(self, event_type, pattern_ids, object_types=None):
+        if object_types is None:
+            object_types = self.object_types
+        model: Model = self.models[event_type]
+        antecedent_ids, partition, partitioners = model.split_by_pattern_ids(pattern_ids)
+        resp = {}
+        for i in range(len(partition)):
+            E_i = partition[i]
+            Q_i = partitioners[i]
+            A_i = antecedent_ids[i]
+            partition_info = self.__make_partition_info(E_i, Q_i)
+            partition_response = self.__partition_info_response(partition_info, object_types)
+            antecedents = list(map(lambda a_id: self.patterns_by_ids[a_id], A_i))
+            pretty_antecedent_ids = list(map(lambda a: self.__get_formula_TeX(a), antecedents))
+            resp[i] = {
+                "antecedent-ids": antecedent_ids,
+                "pretty-antecedent-ids": pretty_antecedent_ids,
+                "partition-response": partition_response
+            }
+        return resp
+
+
+    def __make_partition_info(self, E, Q):
+        print()
+        supports_dict = {
+            "itemsets": Q,
+            "support": [E[pattern_ids].all(axis=1).sum() / len(E) for pattern_ids in Q]
+        }
+        df = pd.DataFrame(supports_dict)
+        df = self.__postprocess_pattern_supports_frame(df)
+        return df
+
 
     def __postprocess_pattern_supports_frame(self, pattern_supports):
         df = (pattern_supports.explode("itemsets").reset_index()
@@ -1014,3 +1053,7 @@ class PatternMiningManager:
         else:
             df["arguments"] = pd.Series()
         return df
+
+    def __get_formula_TeX(self, p: PatternFormula):
+        return "$$\\mathit{" + p.to_TeX() + "}$$"
+

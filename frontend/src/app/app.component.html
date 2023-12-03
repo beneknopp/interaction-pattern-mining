@@ -25,7 +25,7 @@
         </div>-->
       </div>
       <div class="content">
-        <select id="selectOptions" [(ngModel)]="selectedEventTypes" name="options" multiple class="event-type-selector"
+        <select id="selectOptions" [(ngModel)]="filteredEventTypes" name="options" multiple class="event-type-selector"
           (change)="onSelectionChange($event)" [disabled]="eventTypesConfirmed">
           <option *ngFor="let option of eventTypes" [value]="option">{{ option }}</option>
         </select>

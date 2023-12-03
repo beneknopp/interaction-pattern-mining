@@ -20,8 +20,8 @@ export class ModelViewComponent implements OnInit {
   cachedFilteredObjectTypes: ObjectType[] = []
   formulaFontSize: number = 10;
   modelResponse: ModelResponse | undefined;
-  prettyPatterns: string[][] = [];
   argument_ids: { [objectType: ObjectType]: string[] } = {};
+  splitPatternIds: string[] = [];
   leftContents: [number, string[]][] = [];
   rightContents: string[] = [];
 
@@ -45,12 +45,11 @@ export class ModelViewComponent implements OnInit {
       return
     }
     this.cachedFilteredObjectTypes = this.filteredObjectTypes
-    this.apiService.getFilteredModel(this.sessionKey, this.modeledEventType, this.filteredObjectTypes)
+    this.apiService.getFilteredModel(this.sessionKey, this.splitPatternIds, this.modeledEventType, this.filteredObjectTypes)
       .subscribe((resp: ModelResponse) => {
-        debugger
         this.modelResponse = resp
         let partitions: any[] = []
-        Object.entries(resp).forEach(([key, value]) => {partitions.push(value)})
+        Object.entries(resp).forEach(([_, value]) => {partitions.push(value)})
         let patternNodeContents : [number, string[]][] = []
         partitions.forEach(partition => {
           patternNodeContents.push([partition.support, partition.pretty_pattern_ids])

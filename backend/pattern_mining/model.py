@@ -55,6 +55,12 @@ class Model:
         self.split_paths = split_paths
         return split_paths
 
+    def split_by_pattern_ids(self, pattern_ids):
+        E = self.events_satisfactions.copy()
+        Q = self.partitioner
+        ig, antecedent_ids, partition, partitioners = self.__split_by_pattern_ids(E, Q, pattern_ids)
+        return antecedent_ids, partition, partitioners
+
     def __recursive_split(self, E, partitioner, splitter_groups, depth, attribute_parent=None):
         if self.evaluation_mode is EvaluationMode.QUALITY:
             self.__update_evaluation_records_quality(attribute_parent, self.max_depth - depth, E, partitioner)
@@ -74,7 +80,7 @@ class Model:
         best_split_pattern_ids = None
         for cat_att, patterns in splitter_groups:
             split_pattern_ids = list(map(lambda pat: pat.to_string(), patterns))
-            information_gain, partition, partitioners = self.__get_split_information_gain(E, partitioner, split_pattern_ids)
+            information_gain, _, partition, partitioners = self.__split_by_pattern_ids(E, partitioner, split_pattern_ids)
             if information_gain > max_information_gain:
                 max_information_gain = information_gain
                 split_attribute = cat_att
@@ -95,7 +101,7 @@ class Model:
             subsplits.append(sub_partitions)
         return ModelSplit(max_information_gain, split_attribute, best_split_pattern_ids, subsplits)
 
-    def __get_split_information_gain(self, E, partitioner, split_pattern_ids):
+    def __split_by_pattern_ids(self, E, partitioner, split_pattern_ids):
         if len(E) == 0:
             return 0
         self.dependencies[";".join(split_pattern_ids)] = []
@@ -131,6 +137,7 @@ class Model:
                 E_i["any_in_Qi"] = E_i["any_in_Qi"] | E_i[P_j].all(axis=1)
             E_i = E_i[E_i["any_in_Qi"]].drop(columns=["any_in_Qi"], inplace=False)
             E_[i] = E_i
+        A_ = []
         for i in range(n):
             if any(list_equals(A[i], A[j]) for j in range(i)):
                 del E_[i]
@@ -138,13 +145,15 @@ class Model:
                 continue
             E_i = E_[i]
             Pi_ = P_[i]
+            A_.append(A[i])
             lift = self.__get_lift(E, A[i], Pi_)
             support_Ei_Pi_ = len(E_i[E_i[Pi_].all(axis=1)])
             self.dependencies[";".join(split_pattern_ids)].append((abs(lift), Pi_))
             information_gain += len(E_i)/len(E) * support_Ei_Pi_ /len(E_i) * abs(lift)
         E_ = dict(enumerate(E_.values()))
         Q_ = dict(enumerate(Q_.values()))
-        return information_gain, E_, Q_
+        A_ = dict(enumerate(A_))
+        return information_gain, A_, E_, Q_
 
     def get_precision(self):
         supported, support_table = self.__get_support_table(self.events_satisfactions, self.partitioner)

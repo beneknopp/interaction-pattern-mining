@@ -176,8 +176,10 @@ def get_model():
     body = request.get_json()
     event_type = body["event-type"]
     object_types = body["object-types"]
-    resp = pamela.get_model_response(event_type, object_types)
+    pattern_ids = body["split-pattern-ids"]
+    resp = pamela.get_split_response(event_type, pattern_ids, object_types)
     return resp
+
 
 if __name__ == '__main__':
     app.run(debug=False)

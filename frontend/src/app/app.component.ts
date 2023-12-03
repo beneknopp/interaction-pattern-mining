@@ -20,6 +20,7 @@ export class AppComponent {
   mergeMode = false;
   searchComplete = false;
   eventTypes: EventType[] = [];
+  filteredEventTypes: EventType[] = [];
   selectedEventTypes: EventType[] = [];
   eventTypesConfirmed: boolean = false;
   searchPlans: SearchPlans | undefined;
@@ -61,10 +62,12 @@ export class AppComponent {
     if (!this.sessionKey) {
       return
     }
-    const upload$ = this.apiService.confirmEventTypes(this.sessionKey, this.selectedEventTypes).subscribe((resp: SearchPlans) => {
+    const upload$ = this.apiService.confirmEventTypes(this.sessionKey, this.filteredEventTypes).subscribe((resp: SearchPlans) => {
       this.searchPlans = JSON.parse(JSON.stringify(resp));
       this.filteredSearchPlans = JSON.parse(JSON.stringify(resp));
       this.eventTypesConfirmed = true
+      this.selectedEventTypes = this.filteredEventTypes
+      this.editedEventType = undefined
     })
   }
 
