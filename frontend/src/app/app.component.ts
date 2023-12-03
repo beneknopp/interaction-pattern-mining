@@ -73,10 +73,9 @@ export class AppComponent {
       return
     }
     this.apiService.loadSearchPlans(this.sessionKey).subscribe((resp: SearchPlans) => {
-      this.searchPlans = JSON.parse(JSON.stringify(resp));
-      this.filteredSearchPlans = JSON.parse(JSON.stringify(resp));
-      this.onChangePatternEditDropdown()
-      this.onChangeSelectedPatterns()
+      this.searchPlans = JSON.parse(JSON.stringify(resp))
+      this.filteredSearchPlans = JSON.parse(JSON.stringify(resp))
+      this.searchPlansLoaded = true
     })
   }
 

@@ -1,0 +1,20 @@
+.model-content{
+    margin-left:20px;
+}
+
+.model-filter-dropdowns {
+    display: flex;   
+}
+
+.model-filter-event-type-dropdown {
+    width: 30%;
+    margin-right: 10px;
+    margin-bottom: 5px;
+}
+
+.model-filter-object-type-dropdown {
+    width: 60%;
+    margin-right: 10px;
+    margin-bottom: 5px;
+    margin-left:10px;
+}

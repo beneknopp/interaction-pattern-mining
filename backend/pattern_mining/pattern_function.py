@@ -16,3 +16,6 @@ class PatternFunction:
     def create_function_evaluation_table(self, table_manager: TableManager, arguments):
         raise NotImplementedError()
 
+    def to_TeX(self, args):
+        raise NotImplementedError()
+

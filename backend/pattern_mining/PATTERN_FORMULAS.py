@@ -35,11 +35,20 @@ class FreePatternFormula(PatternFormula):
     def is_well_formed(self, bound_variables=None):
         if bound_variables is None:
             bound_variables = []
-        bound_variables_ids = map(lambda v: v.variableId, bound_variables)
-        return all(var.variableId in bound_variables_ids for var in self.freePattern.get_free_variables())
+        bound_variables_ids = map(lambda v: v.id, bound_variables)
+        return all(var.id in bound_variables_ids for var in self.freePattern.get_free_variables())
+
+    def get_object_types(self):
+        return self.freePattern.get_object_types()
+
+    def get_typed_arguments(self, object_type):
+        return self.freePattern.get_typed_arguments(object_type)
 
     def to_string(self):
         return self.freePattern.to_string()
+
+    def to_TeX(self):
+        return self.freePattern.to_TeX()
 
 
 class Negation(PatternFormula):
@@ -58,6 +67,12 @@ class Negation(PatternFormula):
     def get_free_variables(self):
         return self.patternFormula.get_free_variables()
 
+    def get_object_types(self):
+        return self.patternFormula.get_object_types()
+
+    def get_typed_arguments(self, object_type):
+        return self.patternFormula.get_typed_arguments(object_type)
+
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         self.patternFormula.substitute(object_argument, object_variable_argument)
 
@@ -74,6 +89,9 @@ class Negation(PatternFormula):
 
     def to_string(self):
         return "not(" + self.patternFormula.to_string() + ")"
+
+    def to_TeX(self):
+        return "\\neg " + self.patternFormula.to_TeX()
 
 
 class Disjunction(PatternFormula):
@@ -106,6 +124,12 @@ class Disjunction(PatternFormula):
     def get_free_variables(self):
         return self.patternFormula1.get_free_variables().union(self.patternFormula2.get_free_variables())
 
+    def get_object_types(self):
+        return self.patternFormula1.get_object_types().union(self.patternFormula2.get_object_types())
+
+    def get_typed_arguments(self, object_type):
+        return self.patternFormula1.get_typed_arguments(object_type).union(self.patternFormula2.get_typed_arguments(object_type))
+
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         self.patternFormula1.substitute(object_argument, object_variable_argument)
         self.patternFormula2.substitute(object_argument, object_variable_argument)
@@ -120,6 +144,9 @@ class Disjunction(PatternFormula):
 
     def to_string(self):
         return "or(" + self.patternFormula1.to_string() + "," + self.patternFormula2.to_string() + ")"
+
+    def to_TeX(self):
+        return "(" + self.patternFormula1.to_TeX() + "\\lor " + self.patternFormula2.to_TeX() + ")"
 
 
 class Conjunction(PatternFormula):
@@ -136,8 +163,8 @@ class Conjunction(PatternFormula):
         evaluation_table2 = self.patternFormula2.apply(table_manager)
         free_variables1 = self.patternFormula1.get_free_variables()
         free_variables2 = self.patternFormula2.get_free_variables()
-        free_variables1_ids = {x.variableId for x in free_variables1}
-        free_variables2_ids = {y.variableId for y in free_variables2}
+        free_variables1_ids = {x.id for x in free_variables1}
+        free_variables2_ids = {y.id for y in free_variables2}
         joint_variables_ids = free_variables1_ids.intersection(free_variables2_ids)
         evaluation_table = pd.merge(
             evaluation_table1, evaluation_table2,
@@ -154,6 +181,12 @@ class Conjunction(PatternFormula):
     def get_free_variables(self):
         return self.patternFormula1.get_free_variables().union(self.patternFormula2.get_free_variables())
 
+    def get_object_types(self):
+        return self.patternFormula1.get_object_types().union(self.patternFormula2.get_object_types())
+
+    def get_typed_arguments(self, object_type):
+        return self.patternFormula1.get_typed_arguments(object_type).union(self.patternFormula2.get_typed_arguments(object_type))
+
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         self.patternFormula1.substitute(object_argument, object_variable_argument)
         self.patternFormula2.substitute(object_argument, object_variable_argument)
@@ -169,6 +202,9 @@ class Conjunction(PatternFormula):
     def to_string(self):
         return "and(" + self.patternFormula1.to_string() + "," + self.patternFormula2.to_string() + ")"
 
+    def to_TeX(self):
+        return "(" + self.patternFormula1.to_TeX() + "\\land " + self.patternFormula2.to_TeX() + ")"
+
 
 class ExistentialPattern(PatternFormula):
     patternFormula: PatternFormula
@@ -180,7 +216,7 @@ class ExistentialPattern(PatternFormula):
         self.patternFormula = pattern_formula
 
     def apply(self, table_manager: TableManager):
-        variable_id = self.quantifiedVariable.variableId
+        variable_id = self.quantifiedVariable.id
         subformula_evaluation_table = self.patternFormula.apply(table_manager)
         event_id_and_free_variables = [x for x in subformula_evaluation_table.columns
                                        if x not in [variable_id, "ox:evaluation"]]
@@ -194,6 +230,12 @@ class ExistentialPattern(PatternFormula):
     def get_free_variables(self):
         return set(x for x in self.patternFormula.get_free_variables() if not equals(x, self.quantifiedVariable))
 
+    def get_object_types(self):
+        return self.patternFormula.get_object_types()
+
+    def get_typed_arguments(self, object_type):
+        return self.patternFormula.get_typed_arguments(object_type)
+
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         assert not equals(object_variable_argument, self.quantifiedVariable)
         self.patternFormula.substitute(object_argument, object_variable_argument)
@@ -205,13 +247,16 @@ class ExistentialPattern(PatternFormula):
         if bound_variables is None:
             bound_variables = []
         v: ObjectVariableArgument
-        if any(v.variableId == self.quantifiedVariable.variableId for v in bound_variables):
+        if any(v.id == self.quantifiedVariable.id for v in bound_variables):
             return False
         bound_variables = bound_variables + [self.quantifiedVariable]
         return self.patternFormula.is_well_formed(bound_variables)
 
     def to_string(self):
         return "ex(" + self.quantifiedVariable.to_string() + "," + self.patternFormula.to_string() + ")"
+
+    def to_TeX(self):
+        return "\\exists " + self.quantifiedVariable.id + ":" + self.patternFormula.to_TeX()
 
 
 class UniversalPattern(PatternFormula):
@@ -229,6 +274,12 @@ class UniversalPattern(PatternFormula):
     def get_free_variables(self):
         return set(x for x in self.patternFormula.get_free_variables() if not equals(x, self.quantifiedVariable))
 
+    def get_object_types(self):
+        return self.patternFormula.get_object_types()
+
+    def get_typed_arguments(self, object_type):
+        return self.patternFormula.get_typed_arguments(object_type)
+
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         assert not equals(object_variable_argument, self.quantifiedVariable)
         self.patternFormula.substitute(object_argument, object_variable_argument)
@@ -244,13 +295,16 @@ class UniversalPattern(PatternFormula):
         if bound_variables is None:
             bound_variables = []
         v: ObjectVariableArgument
-        if any(v.variableId == self.quantifiedVariable.variableId for v in bound_variables):
+        if any(v.id == self.quantifiedVariable.id for v in bound_variables):
             return False
         bound_variables = bound_variables + [self.quantifiedVariable]
         return self.patternFormula.is_well_formed(bound_variables)
 
     def to_string(self):
         return "all(" + self.quantifiedVariable.to_string() + "," + self.patternFormula.to_string() + ")"
+
+    def to_TeX(self):
+        return "\\forall " + self.quantifiedVariable.id + ":" + self.patternFormula.to_TeX()
 
 
 def get_oa_val_eq_formula(object_variable: ObjectVariableArgument, object_attribute, value):

@@ -1,0 +1,17 @@
+<div class="container">
+
+  <!-- Left Part -->
+  <div class="left" #left>
+    <app-pattern-node *ngFor="let content of leftContents; let i = index" (mouseenter)="expandContainer()"
+      (mouseleave)="collapseContainer()" [support]="content[0]" [patternTeXs]="content[1]"></app-pattern-node>
+  </div>
+
+  <!-- Right Part -->
+  <div class="right" #right>
+    <app-object-type-node *ngFor="let objectType of rightContents" [objectType]="objectType"></app-object-type-node>
+  </div>
+
+  <!--<app-model-edge *ngFor="let edge of edges; let i = index" [startX]="getLeftNodeCenterX(i)"
+    [startY]="getLeftNodeCenterY(i)" [endX]="getRightNodeCenterX(i)" [endY]="getRightNodeCenterY(i)"></app-model-edge>
+  -->
+</div>

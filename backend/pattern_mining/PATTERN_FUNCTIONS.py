@@ -25,11 +25,14 @@ class Eaval_eq(PatternFunction):
         evaluated["ox:evaluation"] = evaluated[self.eventAttribute] == self.value
         return evaluated[["ocel:eid", "ox:evaluation"]]
 
+    def get_ebnf_descriptor(self):
+        raise NotImplementedError()
+
     def to_string(self):
         return "eaval_eq_{" + self.eventAttribute + "," + str(self.value) + "}"
 
-    def get_ebnf_descriptor(self):
-        raise NotImplementedError()
+    def to_TeX(self, args):
+        return self.eventAttribute + "=" + str(self.value)
 
 
 class Eaval_leq(PatternFunction):
@@ -51,6 +54,9 @@ class Eaval_leq(PatternFunction):
 
     def to_string(self):
         return "eaval_leq_{" + self.eventAttribute + "," + str(self.value) + "}"
+
+    def to_TeX(self, args):
+        return self.eventAttribute + "\\leq" + str(self.value)
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
@@ -76,6 +82,9 @@ class Eaval_geq(PatternFunction):
     def to_string(self):
         return "eaval_geq_{" + self.eventAttribute + "," + str(self.value) + "}"
 
+    def to_TeX(self, args):
+        return self.eventAttribute + "\\geq" + str(self.value)
+
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
 
@@ -95,7 +104,7 @@ class Oaval_eq(PatternFunction):
 
     def create_function_evaluation_table(self, table_manager: TableManager, arguments):
         arg: ObjectVariableArgument = arguments[0]
-        variable_id = arg.variableId
+        variable_id = arg.id
         object_type = arg.objectType
         evaluated = table_manager.get_event_interaction_table()
         evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
@@ -105,6 +114,9 @@ class Oaval_eq(PatternFunction):
 
     def to_string(self):
         return "oaval_eq_{" + self.objectAttribute + "," + str(self.value) + "}"
+
+    def to_TeX(self, args):
+        return self.objectAttribute + "(" + args[0] + ")" + "=" + str(self.value)
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
@@ -124,7 +136,7 @@ class Oaval_leq(PatternFunction):
 
     def create_function_evaluation_table(self, table_manager: TableManager, arguments):
         arg: ObjectVariableArgument = arguments[0]
-        variable_id = arg.variableId
+        variable_id = arg.id
         object_type = arg.objectType
         evaluated = table_manager.get_event_interaction_table()
         evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
@@ -134,6 +146,9 @@ class Oaval_leq(PatternFunction):
 
     def to_string(self):
         return "oaval_leq_{" + self.objectAttribute + "," + str(self.value) + "}"
+
+    def to_TeX(self, args):
+        return self.objectAttribute + "(" + args[0] + ")" + "\\leq" + str(self.value)
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
@@ -153,7 +168,7 @@ class Oaval_geq(PatternFunction):
 
     def create_function_evaluation_table(self, table_manager: TableManager, arguments):
         arg: ObjectVariableArgument = arguments[0]
-        variable_id = arg.variableId
+        variable_id = arg.id
         object_type = arg.objectType
         evaluated = table_manager.get_event_interaction_table()
         evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
@@ -163,6 +178,9 @@ class Oaval_geq(PatternFunction):
 
     def to_string(self):
         return "oaval_geq_{" + self.objectAttribute + "," + str(self.value) + "}"
+
+    def to_TeX(self, args):
+        return self.objectAttribute + "(" + args[0] + ")" + "\\geq" + str(self.value)
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
@@ -190,6 +208,9 @@ class Ot_card(PatternFunction):
     def to_string(self):
         return "ot_card_{" + self.objectType + "," + str(self.card) + "}"
 
+    def to_TeX(self, args):
+        return "#_{" + self.objectType + "}=" + self.card
+
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
 
@@ -208,11 +229,11 @@ class E2o_r(PatternFunction):
 
     def create_function_evaluation_table(self, table_manager: TableManager, arguments):
         arg: ObjectVariableArgument = arguments[0]
-        variable_id = arg.variableId
+        variable_id = arg.id
         object_type = arg.objectType
         interaction_table = table_manager.get_event_interaction_table()
         interaction_table["is_r"] = (interaction_table["ocel:qualifier"] == self.qual)
-        interaction_table["is_type"] = (interaction_table["is_r"] == object_type)
+        interaction_table["is_type"] = (interaction_table["ocel:type"] == object_type)
         interaction_table["is_r_of_type"] = (interaction_table["is_r"] & interaction_table["is_type"])
         evaluated = interaction_table.groupby(["ocel:eid","ocel:oid"])['is_r_of_type'].max().reset_index(name="ox:evaluation")
         evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
@@ -220,6 +241,9 @@ class E2o_r(PatternFunction):
 
     def to_string(self):
         return "e2o_{" + self.qual + "}"
+
+    def to_TeX(self, args):
+        return self.qual + "(" + args[0] + ")"
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
@@ -240,8 +264,8 @@ class O2o_r(PatternFunction):
         arg1, arg2 = arguments
         arg1: ObjectVariableArgument
         arg2: ObjectVariableArgument
-        variable_id1 = arg1.variableId
-        variable_id2 = arg2.variableId
+        variable_id1 = arg1.id
+        variable_id2 = arg2.id
         source_object_type = arg1.objectType
         target_object_type = arg2.objectType
 
@@ -264,6 +288,9 @@ class O2o_r(PatternFunction):
     def to_string(self):
         return "o2o_{" + self.qual + "}"
 
+    def to_TeX(self, args):
+        return self.qual + "(" + args[0] + "," + args[1] + ")"
+
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
 
@@ -281,7 +308,7 @@ class O2o_complete(PatternFunction):
     def create_function_evaluation_table(self, table_manager: TableManager, arguments):
         arg = arguments[0]
         arg: ObjectVariableArgument
-        variable_id = arg.variableId
+        variable_id = arg.id
         source_object_type = arg.objectType
         target_object_type = self.objectType
         source_type_event_objects = table_manager.get_event_objects(source_object_type)
@@ -317,6 +344,9 @@ class O2o_complete(PatternFunction):
 
     def to_string(self):
         return "o2o_complete_{" + self.qual + "," + self.objectType + "}"
+
+    def to_TeX(self, args):
+        return self.qual + "_{" + self.objectType + "}^{complete}(" + args[0] + ")"
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()

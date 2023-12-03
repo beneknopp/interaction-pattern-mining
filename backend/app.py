@@ -163,19 +163,21 @@ def search():
     pamela.visualize_global_scores()
     pamela.visualize_splits()
     pamela.save()
-    resp = pamela.get_model_response()
+    #resp = pamela.get_model_response()
     return Response.get(True)
 
 
-@app.route('/get-model', methods=['GET'])
+@app.route('/get-model', methods=['GET','POST'])
 @cross_origin()
 def get_model():
     session_key = request.args.get('sessionKey')
     session['session_key'] = session_key
     pamela: PatternMiningManager = PatternMiningManager.load()
     body = request.get_json()
-    object_types = body["objectTypes"]
-    resp = pamela.get_model_response(object_types)
+    event_type = body["event-type"]
+    object_types = body["object-types"]
+    resp = pamela.get_model_response(event_type, object_types)
+    return resp
 
 if __name__ == '__main__':
     app.run(debug=False)

@@ -32,6 +32,9 @@ class PatternFormula:
     def get_free_variables(self):
         raise NotImplementedError()
 
+    def get_typed_arguments(self, object_type):
+        raise NotImplementedError()
+
     def substitute(self, object_argument: ObjectArgument, object_variable_argument: ObjectVariableArgument):
         raise NotImplementedError()
 
@@ -41,6 +44,8 @@ class PatternFormula:
     def is_well_formed(self, bound_variables):
         raise NotImplementedError()
 
-
     def to_string(self):
+        raise NotImplementedError()
+
+    def to_TeX(self):
         raise NotImplementedError()

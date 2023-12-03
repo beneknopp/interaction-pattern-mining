@@ -40,9 +40,23 @@ class FreePattern:
     def copy(self):
         return FreePattern(self.patternFunction, self.arguments)
 
+    def get_object_types(self):
+        return set(map(lambda arg: arg.objectType, self.arguments))
+
+    def get_typed_arguments(self, object_type):
+        args = filter(lambda arg: arg.objectType == object_type, self.arguments)
+        return set(map(lambda arg: arg.id, args))
+
     def to_string(self):
         function_identifier = self.patternFunction.to_string()
         arg: Argument
         arg_string = ",".join(map(lambda arg: arg.to_string(), self.arguments))
         identifier = function_identifier + "(" + arg_string + ")"
         return identifier
+
+    def to_TeX(self):
+        args = list(map(lambda arg: arg.id, self.arguments))
+        return self.patternFunction.to_TeX(args)
+
+
+

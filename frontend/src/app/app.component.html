@@ -123,14 +123,14 @@
         </div>
         <div>
           <label>Search complete?</label>
-          <span *ngIf="searchComplete">&#10003;</span>
+          <span *ngIf="modelMined">&#10003;</span>
         </div>
       </div>
     </div>
 
     <div class="column column-50">
       <app-model-view 
-      [modelMined]="modelMined"
+      [modelMined]="modelMined" [sessionKey]="sessionKey"
       [eventTypes]="selectedEventTypes" [objectTypes]="uploadResponse?.event_type_object_types">
       </app-model-view>
     </div>

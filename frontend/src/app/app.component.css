@@ -60,6 +60,7 @@ body {
 
 .pattern-select-dropdowns {
     display: flex;
+    width: 100%;
 }
 
 .pattern-select-dropdown {

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { catchError, tap } from 'rxjs/operators';
-import { EventType, ObjectType } from './dtos/utils';
+import { EventType } from './dtos/utils';
 
 @Injectable({
   providedIn: 'root'
@@ -55,18 +55,6 @@ export class ApiService {
     return this.http.get<any>(this.backendUrl + '/search?sessionKey=' + session_key +
       '&complementaryMode=' + complementary_mode +
       '&mergeMode=' + merge_mode)
-  }
-
-  getFilteredModel(session_key:string, event_type: EventType, object_types: ObjectType[]) {
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json'
-    });
-    let body_content = {
-      "event-type": event_type,
-      "object-types": object_types
-    }
-    const body = JSON.stringify(body_content);
-    return this.http.post<any>(this.backendUrl + 'get-model?sessionKey=' + session_key, body, { headers })
   }
 
 }

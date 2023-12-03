@@ -27,11 +27,13 @@ class ModelSplit:
 
 class Model:
 
-    def __init__(self, partitioner, events_satisfactions, event_type, object_types,
+    def __init__(self, pattern_supports, postprocessed_pattern_supports, events_satisfactions, event_type, object_types,
                  evaluation_mode: EvaluationMode=EvaluationMode.NONE):
         self.min_split_information_gain = None
         self.split_paths = None
-        self.partitioner = partitioner
+        self.partitioner = pattern_supports["itemsets"]
+        self.postprocessed_pattern_supports = postprocessed_pattern_supports
+        self.supports = pattern_supports
         self.events_satisfactions = events_satisfactions
         self.event_type = event_type
         self.object_types = object_types

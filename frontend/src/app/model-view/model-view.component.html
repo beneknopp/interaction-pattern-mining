@@ -1,19 +1,19 @@
-<div class="content">
+<div class="model-content">
     <h3>Model</h3>
-    <div class="model-filter">
-        <div class="model-filter-dropdown">
+    <div class="model-filter-dropdowns">
+        <div class="model-filter-event-type-dropdown">
             <label for="model-filter-event-type">Event Type</label>
-            <select [(ngModel)]="modeledEventType" id="model-filter-event-type" class="model-filter-dropdown"
-                (change)="onChangeModelFilterDropdown()" [disabled]="!modelMined">
-                <option *ngFor="let option of eventTypes" [value]="option">{{ option }}</option>
-            </select>
+            <ng-select [(ngModel)]="modeledEventType" id="model-filter-event-type" [items]="getEventTypes()"
+                (change)="onChangeEventType()" [disabled]="!modelMined">
+            </ng-select>
         </div>
-        <div class="model-filter-dropdown">
+        <div class="model-filter-object-type-dropdown custom-ng-select">
             <label for="model-filter-object-type">Object Types</label>
-            <ng-select class="model-filter-dropdown" [items]="objectTypes?[modeledEventType] : []" 
-                [multiple]="true"
-                bindLabel="name" [(ngModel)]="filteredObjectTypes" (change)="onChangeModelFilterDropdown()">
+            <ng-select style="font-family: roboto" [items]="getEventTypeObjectTypes()" [multiple]="true" 
+                [(ngModel)]="filteredObjectTypes" (change)="onChangeObjectTypes()" [disabled]="!modelMined || !modeledEventType">
             </ng-select>
         </div>
     </div>
+    <app-model-graph [leftContents]="leftContents"
+    [rightContents]="rightContents"></app-model-graph>
 </div>
