@@ -1,4 +1,5 @@
 import copy
+import math
 import warnings
 from functools import reduce
 from itertools import product
@@ -637,6 +638,23 @@ class PatternMiningManager:
             self.__make_models(event_type, base_table, minimal_support)
             self.base_tables[event_type] = base_table
             print("Finished searching patterns for event type '" + event_type + "'.")
+        resp = {
+            "model_evaluations": {},
+            "all_patterns": {}
+        }
+        for event_type in event_types:
+            resp[event_type] = {}
+            model = self.models[event_type]
+            pattern_ids = model.pattern_ids
+            pattern_ids = sorted(pattern_ids)
+            resp["all_patterns"][event_type] = pattern_ids
+            eval = {}
+            eval["recall"] = model.get_recall()
+            eval["precision"] = model.get_precision()
+            eval["discrimination"] = model.get_discrimination()
+            eval["simplicity"] = model.get_simplicity()
+            resp["model_evaluations"][event_type] = eval
+        return resp
 
     def __make_bootstrap_table(self, event_type: str, table_manager: TableManager) -> DataFrame:
         base_table = table_manager.get_event_index()
@@ -981,9 +999,12 @@ class PatternMiningManager:
         resp = {}
         i = 0
         for partition_id, group in groups:
-            pattern_ids = group["pattern-id"].to_list()
+            pattern_ids = list(filter(lambda pid: pd.notna(pid), group["pattern-id"].to_list()))
             pretty_patterns = group["pattern"].apply(
-                lambda p: self.__get_formula_TeX(p)).to_list()
+                lambda p: self.__get_formula_TeX(p)
+                if pd.notna(p)
+                else "$$\\emptyset$$"
+            ).to_list()
             pretty_patterns = list(set(pretty_patterns))
             pretty_patterns = sorted(pretty_patterns)
             support = group["support"].to_list()[0]
@@ -991,12 +1012,12 @@ class PatternMiningManager:
                 "pattern_ids": pattern_ids,
                 "pretty_pattern_ids": pretty_patterns,
                 "support": support,
-                "arguments": {}
+                "argument_ids": {}
             }
             for object_type in object_types:
                 ot_arguments = group[group["object-type"] == object_type]["arguments"]
-                ot_arguments = reduce(lambda x, y: x.union(y), ot_arguments)
-                resp[i]["arguments"][object_type] = list(ot_arguments)
+                ot_arguments = reduce(lambda x, y: x.union(y), ot_arguments) if len(ot_arguments) > 0 else set()
+                resp[i]["argument_ids"][object_type] = list(ot_arguments)
             i = i + 1
         return resp
 
@@ -1019,13 +1040,15 @@ class PatternMiningManager:
             Q_i = partitioners[i]
             A_i = antecedent_ids[i]
             partition_info = self.__make_partition_info(E_i, Q_i)
-            partition_response = self.__partition_info_response(partition_info, object_types)
+            model_responses = self.__partition_info_response(partition_info, object_types)
             antecedents = list(map(lambda a_id: self.patterns_by_ids[a_id], A_i))
-            pretty_antecedent_ids = list(map(lambda a: self.__get_formula_TeX(a), antecedents))
+            pretty_A_i = list(map(lambda a: self.__get_formula_TeX(a), antecedents))
+            A_i = sorted(A_i)
+            pretty_A_i = sorted(pretty_A_i)
             resp[i] = {
-                "antecedent-ids": antecedent_ids,
-                "pretty-antecedent-ids": pretty_antecedent_ids,
-                "partition-response": partition_response
+                "antecedent_ids": A_i,
+                "pretty_antecedent_ids": pretty_A_i,
+                "model_responses": model_responses
             }
         return resp
 
@@ -1044,12 +1067,16 @@ class PatternMiningManager:
     def __postprocess_pattern_supports_frame(self, pattern_supports):
         df = (pattern_supports.explode("itemsets").reset_index()
               .rename(columns={"index": "partition-id", "itemsets": "pattern-id"}))
-        df["pattern"] = df["pattern-id"].apply(lambda p_id: self.patterns_by_ids[p_id])
-        df["object-type"] = df["pattern"].apply(lambda p: p.get_object_types())
+        df["pattern"] = df["pattern-id"].apply(lambda p_id: self.patterns_by_ids[p_id]
+            if pd.notna(p_id)
+            else np.nan
+        )
+        df["object-type"] = df["pattern"].apply(lambda p: p.get_object_types() if pd.notna(p) else set())
         df["object-type"] = df["object-type"].apply(lambda ots: ots if len(ots) > 0 else set([np.nan]))
         df = df.explode("object-type").reset_index().drop("index", axis=1)
         if(len(df) > 0):
-            df["arguments"] = df.apply(lambda row: row["pattern"].get_typed_arguments(row["object-type"]), axis=1)
+            df["arguments"] = df.apply(lambda row:
+                row["pattern"].get_typed_arguments(row["object-type"]) if pd.notna(row["pattern"]) else set(), axis=1)
         else:
             df["arguments"] = pd.Series()
         return df

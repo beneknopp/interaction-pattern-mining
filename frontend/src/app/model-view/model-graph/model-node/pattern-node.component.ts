@@ -8,4 +8,8 @@ import { Component, Input } from "@angular/core";
   export class PatternNodeComponent {
     @Input() support: number = 0;
     @Input() patternTeXs : string[] = [];
+    @Input() fontSize: number = 10;
+
+    ngOnInit() {
+    }
   }

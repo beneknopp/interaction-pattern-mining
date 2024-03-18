@@ -7,4 +7,5 @@ import { Component, Input } from '@angular/core';
 })
 export class ObjectTypeNodeComponent {
   @Input() objectType: string = '';
+  @Input() fontSize: number = 10;
 }

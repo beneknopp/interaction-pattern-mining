@@ -4,16 +4,56 @@
         <div class="model-filter-event-type-dropdown">
             <label for="model-filter-event-type">Event Type</label>
             <ng-select [(ngModel)]="modeledEventType" id="model-filter-event-type" [items]="getEventTypes()"
-                (change)="onChangeEventType()" [disabled]="!modelMined">
+                (change)="onChangeConfig()" [disabled]="!modelMined">
             </ng-select>
         </div>
         <div class="model-filter-object-type-dropdown custom-ng-select">
             <label for="model-filter-object-type">Object Types</label>
-            <ng-select style="font-family: roboto" [items]="getEventTypeObjectTypes()" [multiple]="true" 
-                [(ngModel)]="filteredObjectTypes" (change)="onChangeObjectTypes()" [disabled]="!modelMined || !modeledEventType">
+            <ng-select style="font-family: roboto" [items]="getEventTypeObjectTypes()" [multiple]="true"
+                [(ngModel)]="filteredObjectTypes" (change)="onChangeConfig()"
+                [disabled]="!modelMined || !modeledEventType">
             </ng-select>
         </div>
+        <div class="model-filter-dropdowns-font-size-selector">
+            <label for="myNumber">Font Size:</label>
+            <input style="height: 30px; width: 60px; font-size: 14pt;" type="number" id="myNumber"
+                [(ngModel)]="formulaFontSize" required>
+        </div>
     </div>
-    <app-model-graph [leftContents]="leftContents"
-    [rightContents]="rightContents"></app-model-graph>
+    <div>
+        <div *ngIf="modelMined && modeledEventType && modelEvaluations" class="model-evaluation-container">
+            <div class="model-evaluation-element">
+                <span>recall: {{modelEvaluations[modeledEventType].recall}}</span>
+            </div>
+            <div class="model-evaluation-element">
+                <span>precision: {{modelEvaluations[modeledEventType].precision}}</span>
+            </div>
+            <div class="model-evaluation-element">
+                <span>discrimination: {{modelEvaluations[modeledEventType].discrimination}}</span>
+            </div>
+            <div class="model-evaluation-element">
+                <span>simplicity: {{modelEvaluations[modeledEventType].simplicity}}</span>
+            </div>
+        </div>
+        <div class="partition-container" *ngFor="let partition of partitions; let i = index">
+            <div class="antecedents-container">
+                <span style="margin-left: 10px;" [style.fontSize.px]="formulaFontSize"> Rule Antecedents: </span>
+                <div *ngIf="antecedent_formulas[i].length == 0">
+                    <span [style.fontSize.px]="formulaFontSize"> - - - None - - - </span>
+                </div>
+                <app-formula *ngFor="let formula of antecedent_formulas[i]" [expression]="formula"
+                    [fontSize]="formulaFontSize"></app-formula>
+            </div>
+            <app-model-graph [fontSize]="formulaFontSize" [leftContents]="partition[0]"
+                [rightContents]="partition[1]"></app-model-graph>
+        </div>
+    </div>
+    <div class="split-pattern-select-container" *ngIf="modelMined">
+        <h4>Independent Patterns / Split Patterns</h4>
+        <select class="split-pattern-select" id="selectOptions" [(ngModel)]="splitPatterns" name="options" multiple
+            class="split-pattern-select" (change)="onChangeConfig()" [disabled]="!modelMined || !modeledEventType">
+            <option [value]="option" *ngFor="let option of modeledEventType? allPatterns[modeledEventType]: []">{{
+                option }}</option>
+        </select>
+    </div>
 </div>

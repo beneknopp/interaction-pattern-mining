@@ -37,7 +37,7 @@ class Model:
         self.events_satisfactions = events_satisfactions
         self.event_type = event_type
         self.object_types = object_types
-        self.pattern_ids = []
+        self.pattern_ids = list(set(pattern_supports["itemsets"].explode().unique()))
         self.dependencies = {}
         self.evaluation_mode = evaluation_mode
         self.__make_evaluation_records(evaluation_mode)
@@ -157,6 +157,8 @@ class Model:
 
     def get_precision(self):
         supported, support_table = self.__get_support_table(self.events_satisfactions, self.partitioner)
+        if len(support_table) == 0:
+            return -1
         imprecisely_characterized = (support_table.sum(axis=1) > 1).sum()
         precision = 1 - imprecisely_characterized / len(support_table)
         return precision
@@ -171,6 +173,8 @@ class Model:
 
     def get_recall(self):
         supported, support_table = self.__get_support_table(self.events_satisfactions, self.partitioner)
+        if len(support_table) == 0:
+            return -1
         recall = supported / len(support_table)
         return recall
 
@@ -180,6 +184,8 @@ class Model:
 
     def __get_discrimination(self, event_satisfactions, partitioner):
         total_supported, support_table = self.__get_support_table(event_satisfactions, partitioner)
+        if len(support_table) == 0:
+            return -1
         entropy_table = pd.DataFrame(index=support_table.columns)
         entropy_table["supported"] = support_table.sum()
         entropy_table["relative_support"] = entropy_table["supported"] / total_supported

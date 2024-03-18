@@ -1,6 +1,24 @@
 import { ObjectType } from "./utils"
 
-export class Partition {
+export class ModelEvaluation {
+    precision: number
+    recall: number
+    discrimination: number
+    simplicity: number
+    constructor(
+        precision: number,
+        recall: number,
+        discrimination: number,
+        simplicity: number
+    ) {
+        this.precision = precision
+        this.recall = recall
+        this.discrimination = discrimination
+        this.simplicity = simplicity
+    }
+}
+
+export class ModelResponse {
     support: number
     pretty_pattern_ids: string[]
     pattern_ids: string[]
@@ -18,14 +36,29 @@ export class Partition {
     }
 }
 
-export class ModelResponse {
+export class PartitionResponse {
+    antecedent_ids: string[]
+    pretty_antecedent_ids: string[]
+    model_responses: { [partition_id: number]: ModelResponse }
+
+    constructor(
+        antecedent_ids: string[],
+        pretty_antecedent_ids: string[],
+        model_responses: { [partition_id: number]: ModelResponse }
+    ) {
+        this.antecedent_ids = antecedent_ids
+        this.pretty_antecedent_ids = pretty_antecedent_ids
+        this.model_responses = model_responses
+    }
+}
+
+export class SplitResponse {
     response: {
-        [partition: number]: Partition
+        [partition: number]: PartitionResponse
     }
     constructor(
-        response: {[partition: number]: Partition}
+        response: { [partition: number]: PartitionResponse }
     ) {
         this.response = response
     }
 }
-

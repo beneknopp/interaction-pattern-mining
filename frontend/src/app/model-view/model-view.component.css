@@ -1,13 +1,13 @@
-.model-content{
-    margin-left:20px;
+.model-content {
+    margin-left: 20px;
 }
 
 .model-filter-dropdowns {
-    display: flex;   
+    display: flex;
 }
 
 .model-filter-event-type-dropdown {
-    width: 30%;
+    width: 25%;
     margin-right: 10px;
     margin-bottom: 5px;
 }
@@ -16,5 +16,46 @@
     width: 60%;
     margin-right: 10px;
     margin-bottom: 5px;
-    margin-left:10px;
+    margin-left: 10px;
+}
+
+.model-filter-dropdowns-font-size-selector {
+    width: 10%;
+}
+
+.partition-container {
+    border: 1px solid;
+    margin-bottom: 5px;
+}
+
+.antecedents-container {
+    min-height: 30px;
+    max-height: 60px;
+    overflow-y: auto;
+}
+
+.app-model-graph {
+    border: 1px solid green;
+}
+
+.split-pattern-select-container {
+    height: 200px;
+    width: 100%;
+}
+
+.split-pattern-select {
+    height: 100%;
+    width: 100%;
+    overflow-y: scroll;
+}
+
+.model-evaluation-container {
+    width: 100%;
+    display: flex;
+}
+
+.model-evaluation-element {
+    margin-left: 5px;
+    margin-right: 5px;
+    width: 20%;
 }

@@ -17,11 +17,11 @@ class PatternParser:
         self.formula = None
 
     def parse(self, pattern_id: str) -> bool:
-        try:
-            formula = self.__parse_recursively(pattern_id)
-            self.formula = formula
-        except AssertionError:
-            return False
+        #try:
+        formula = self.__parse_recursively(pattern_id)
+        self.formula = formula
+        #except AssertionError:
+        #    return False
         return formula.is_well_formed()
 
     def __parse_recursively(self, pattern_id: str):

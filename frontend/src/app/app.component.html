@@ -116,6 +116,11 @@
             <input type="checkbox" [(ngModel)]="mergeMode"> Merge Mode
           </label>
         </div>
+        <div class="min-support-selector">
+          <label for="myNumber">Support Infimum:</label>
+          <input style="width: 60px; font-size: 10pt;" type="number" id="myNumber"
+            [(ngModel)]="minSupport" required>
+        </div>
         <div class="button-container">
           <button class="button" (click)="startSearch()" [disabled]="!logUploaded">
             Start Search
@@ -129,10 +134,11 @@
     </div>
 
     <div class="column column-50">
-      <app-model-view 
-      [modelMined]="modelMined" [sessionKey]="sessionKey"
-      [eventTypes]="selectedEventTypes" [objectTypes]="uploadResponse?.event_type_object_types">
+      <app-model-view [modelMined]="modelMined" [sessionKey]="sessionKey" [allPatterns]="allPatterns"
+        [modelEvaluations]="modelEvaluations" [eventTypes]="selectedEventTypes"
+        [objectTypes]="uploadResponse?.event_type_object_types">
       </app-model-view>
     </div>
   </div>
+
 </body>

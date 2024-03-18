@@ -1,4 +1,4 @@
 <div class="node">
-    {{support}}
-    <app-formula *ngFor="let tex of patternTeXs" [expression]="tex"></app-formula>
+    <span [style.fontSize.px]="fontSize">Rule Confidence: {{support}}</span> 
+    <app-formula *ngFor="let tex of patternTeXs" [fontSize]="fontSize" [expression]="tex"></app-formula>
 </div>

@@ -35,7 +35,7 @@ class FreePatternFormula(PatternFormula):
     def is_well_formed(self, bound_variables=None):
         if bound_variables is None:
             bound_variables = []
-        bound_variables_ids = map(lambda v: v.id, bound_variables)
+        bound_variables_ids = list(map(lambda v: v.id, bound_variables))
         return all(var.id in bound_variables_ids for var in self.freePattern.get_free_variables())
 
     def get_object_types(self):

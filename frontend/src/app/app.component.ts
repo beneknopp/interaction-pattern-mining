@@ -3,6 +3,7 @@ import { ApiService } from './api.service';
 import { UploadResponse } from './dtos/upload-response';
 import { PatternType, SearchPlans } from './dtos/search_plans';
 import { EventType, ObjectType, PatternID } from './dtos/utils';
+import { ModelEvaluation } from './dtos/model-response';
 
 @Component({
   selector: 'app-root',
@@ -32,7 +33,9 @@ export class AppComponent {
   selectedPatterns: PatternID[] = [];
   customPatternDescription: PatternID = "";
   modelMined = false;
-  
+  allPatterns: { [eventType: EventType]: string[] } = {};
+  modelEvaluations: { [eventType: EventType]: ModelEvaluation} = {}
+  minSupport: number = 0;
 
   constructor(
     private apiService: ApiService
@@ -67,7 +70,7 @@ export class AppComponent {
       this.filteredSearchPlans = JSON.parse(JSON.stringify(resp));
       this.eventTypesConfirmed = true
       this.selectedEventTypes = this.filteredEventTypes
-      this.editedEventType = undefined
+      this.editedEventType = this.selectedEventTypes[0]
     })
   }
 
@@ -151,7 +154,9 @@ export class AppComponent {
     let pattern_id = this.customPatternDescription
     this.apiService.registerCustomPattern(this.sessionKey, event_type, pattern_id)
       .subscribe((resp: any) => {
-        if(resp["resp"]) {
+        console.log(resp)
+        if (resp["resp"]) {
+          debugger
           let search_plans = this.searchPlans
           let filtered_search_plans = this.filteredSearchPlans
           if (filtered_search_plans && search_plans && event_type) {
@@ -185,8 +190,11 @@ export class AppComponent {
     if (!this.sessionKey) {
       return
     }
-    this.apiService.startSearch(this.sessionKey, this.complementaryMode, this.mergeMode).subscribe((resp: any) => {
-      console.log(resp)
+    this.apiService.startSearch(this.sessionKey, this.minSupport, this.complementaryMode, this.mergeMode).subscribe(
+      (resp: {model_evaluations: {[eventType: EventType]: ModelEvaluation},
+      all_patterns: {[eventType: EventType]: string[]}} ) => {
+      this.modelEvaluations = resp.model_evaluations
+      this.allPatterns = resp.all_patterns
       this.modelMined = true
     })
   }

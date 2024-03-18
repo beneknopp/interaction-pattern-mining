@@ -28,15 +28,15 @@ export class ApiService {
       'Content-Type': 'application/json'
     });
     const body = JSON.stringify(selected_event_types);
-    return this.http.post<any>(this.backendUrl + 'set-event-types?sessionKey=' + session_key, body, { headers })
+    return this.http.post<any>(this.backendUrl + 'set-event-types?session-key=' + session_key, body, { headers })
   }
 
   loadTables(session_key: string) {
-    return this.http.get<any>(this.backendUrl + '/load-tables?sessionKey=' + session_key)
+    return this.http.get<any>(this.backendUrl + '/load-tables?session-key=' + session_key)
   }
 
   loadSearchPlans(session_key: string) {
-    return this.http.get<any>(this.backendUrl + '/search-plans?sessionKey=' + session_key)
+    return this.http.get<any>(this.backendUrl + '/search-plans?session-key=' + session_key)
   }
 
   registerCustomPattern(session_key: string, editedEventType: string, customPatternDescription: string) {
@@ -48,25 +48,27 @@ export class ApiService {
       "pattern_id": customPatternDescription
     }
     const body = JSON.stringify(body_content);
-    return this.http.post<any>(this.backendUrl + 'register-custom-pattern?sessionKey=' + session_key, body, { headers })
+    return this.http.post<any>(this.backendUrl + 'register-custom-pattern?session-key=' + session_key, body, { headers })
   }
 
-  startSearch(session_key: string, complementary_mode: boolean, merge_mode: boolean) {
-    return this.http.get<any>(this.backendUrl + '/search?sessionKey=' + session_key +
-      '&complementaryMode=' + complementary_mode +
-      '&mergeMode=' + merge_mode)
+  startSearch(session_key: string, min_support:number, complementary_mode: boolean, merge_mode: boolean) {
+    return this.http.get<any>(this.backendUrl + '/search?session-key=' + session_key +
+      '&complementary-mode=' + complementary_mode +
+      '&merge-mode=' + merge_mode + 
+      '&min-support=' + min_support)
   }
 
-  getFilteredModel(session_key:string, event_type: EventType, object_types: ObjectType[]) {
+  getFilteredModel(session_key:string, split_pattern_ids: string[], event_type: EventType, object_types: ObjectType[]) {
     const headers = new HttpHeaders({
       'Content-Type': 'application/json'
     });
     let body_content = {
       "event-type": event_type,
-      "object-types": object_types
+      "object-types": object_types,
+      "split-pattern-ids": split_pattern_ids
     }
     const body = JSON.stringify(body_content);
-    return this.http.post<any>(this.backendUrl + 'get-model?sessionKey=' + session_key, body, { headers })
+    return this.http.post<any>(this.backendUrl + 'get-model?session-key=' + session_key, body, { headers })
   }
 
 }

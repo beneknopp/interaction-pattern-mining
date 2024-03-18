@@ -58,7 +58,7 @@ def delete_pattern():
 @app.route('/set-event-types', methods=['GET', 'POST'])
 @cross_origin()
 def set_event_types():
-    session_key = request.args.get('sessionKey')
+    session_key = request.args.get('session-key')
     session['session_key'] = session_key
     selected_event_types = request.get_json()
     pamela: PatternMiningManager = PatternMiningManager.load()
@@ -85,7 +85,7 @@ def set_event_types():
 @app.route('/search-plans', methods=['GET'])
 @cross_origin()
 def load_search_plans():
-    session_key = request.args.get('sessionKey')
+    session_key = request.args.get('session-key')
     session['session_key'] = session_key
     pamela: PatternMiningManager = PatternMiningManager.load()
     event_types = pamela.event_types_filter
@@ -110,7 +110,7 @@ def load_search_plans():
 @app.route('/register-custom-pattern', methods=['GET', 'POST'])
 @cross_origin()
 def register_custom_pattern():
-    session_key = request.args.get('sessionKey')
+    session_key = request.args.get('session-key')
     session['session_key'] = session_key
     body = request.get_json()
     event_type = body["event_type"]
@@ -130,7 +130,7 @@ def register_custom_pattern():
 @app.route('/load-tables', methods=['GET'])
 @cross_origin()
 def load_tables():
-    session_key = request.args.get('sessionKey')
+    session_key = request.args.get('session-key')
     session['session_key'] = session_key
     pamela: PatternMiningManager = PatternMiningManager.load()
     event_types = pamela.event_types_filter
@@ -144,10 +144,10 @@ def load_tables():
 @app.route('/search', methods=['GET'])
 @cross_origin()
 def search():
-    session_key = request.args.get('sessionKey')
-    complementary_mode = request.args.get('complementaryMode')
-    merge_mode = request.args.get('mergeMode')
-    minimal_support = request.args.get('minimalSupport')
+    session_key = request.args.get('session-key')
+    complementary_mode = request.args.get('complementary-mode')
+    merge_mode = request.args.get('merge-mode')
+    minimal_support = float(request.args.get('min-support'))
     session['session_key'] = session_key
     pamela: PatternMiningManager = PatternMiningManager.load()
     pamela.complementaryMode = True if complementary_mode == "true" else False
@@ -156,21 +156,20 @@ def search():
     pamela.maxSplitRecursionDepth = 1
     pamela.evaluationMode = EvaluationMode.TIME
     event_types = pamela.event_types_filter
-    minimal_support = 0
-    pamela.search_models(event_types, minimal_support)
-    pamela.save_evaluation()
-    pamela.save_split_evaluation()
-    pamela.visualize_global_scores()
-    pamela.visualize_splits()
+    resp = pamela.search_models(event_types, minimal_support)
+    #pamela.save_evaluation()
+    #pamela.save_split_evaluation()
+    #pamela.visualize_global_scores()
+    #pamela.visualize_splits()
     pamela.save()
     #resp = pamela.get_model_response()
-    return Response.get(True)
+    return resp
 
 
 @app.route('/get-model', methods=['GET','POST'])
 @cross_origin()
 def get_model():
-    session_key = request.args.get('sessionKey')
+    session_key = request.args.get('session-key')
     session['session_key'] = session_key
     pamela: PatternMiningManager = PatternMiningManager.load()
     body = request.get_json()
