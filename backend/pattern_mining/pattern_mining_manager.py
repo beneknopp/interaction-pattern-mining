@@ -54,7 +54,8 @@ class PatternMiningManager:
                  do_split=True,
                  min_split_information_gain=1.0000001,
                  max_split_recursion_depth=2,
-                 min_support=0.05
+                 min_support=0.05,
+                 has_session=True
                  ):
         """
          This class will conduct the pattern mining.
@@ -95,7 +96,8 @@ class PatternMiningManager:
         self.event_types_filter = None
         self.evaluation_records = None
         self.table_managers = None
-        self.sessionKey = session.get('session_key', None)
+        if has_session:
+            self.sessionKey = session.get('session_key')
         self.ocel = ocel
         self.__preprocess_ocel()
         self.complementaryMode = complementary_mode

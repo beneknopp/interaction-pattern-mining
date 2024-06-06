@@ -10,9 +10,10 @@ from utils.session_utils import get_session_path
 class EventLogManager:
 
     @classmethod
-    def get_name(cls):
-        session_key = session.get('session_key', None)
-        name = 'elmo_' + str(session_key)
+    def get_name(cls, has_session=True):
+        if has_session:
+            session_key = session.get('session_key', None)
+            name = 'elmo_' + str(session_key)
         return name
 
     @classmethod
@@ -22,9 +23,13 @@ class EventLogManager:
         with open(path, "rb") as rf:
             return pickle.load(rf)
 
-    def __init__(self):
-        self.sessionKey = session.get('session_key')
-        self.name = EventLogManager.get_name()
+    def __init__(self, has_session=True):
+        if has_session:
+            self.sessionKey = session.get('session_key')
+            self.name = EventLogManager.get_name()
+        else:
+            self.sessionKey = None
+            self.name = None
         self.ocel = None
         self.event_types = None
         self.object_types = None
