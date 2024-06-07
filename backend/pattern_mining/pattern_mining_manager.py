@@ -550,45 +550,21 @@ class PatternMiningManager:
                 object_type: {} for object_type in self.event_types_object_types[event_type]}
             self.custom_patterns[event_type] = {}
 
+    def load_auxiliary_table(self, event_type):
+        event_object_types = self.event_types_object_types[event_type]
+        table_manager = TableManager(self.ocel, event_type, event_object_types)
+        return table_manager
+
     def load_tables(self, event_types):
         self.table_managers = {}
-        self.base_table_creation_times = {}
-        self.base_table_evaluation = {
-            "event_type": [],
-            "number_of_events": [],
-            "number_of_objects": [],
-            "number_of_object_to_object_relations": [],
-            "number_of_event_to_object_relations": [],
-            "time": []
-        }
         for i in range(len(event_types)):
             event_type = event_types[i]
-            event_object_types = self.event_types_object_types[event_type]
             print("Starting to load auxiliary tables for event type '" + event_type + "', " + str(i + 1) + "/" + str(
                 len(event_types)) + ".")
-            import time
-            start = time.time()
-            table_manager = TableManager(self.ocel, event_type, event_object_types)
+            table_manager = self.load_auxiliary_table(event_type)
             self.table_managers[event_type] = table_manager
-            end = time.time()
-            runtime = end - start
             print("Finished loading auxiliary tables for event type '" + event_type + "', " + str(i + 1) + "/" + str(
-                len(event_types)) + ", time: " + str(runtime))
-            number_of_event_to_object_relations = 0
-            for object_type in self.event_types_object_types[event_type]:
-                number_of_event_to_object_relations += len(table_manager.get_event_objects(object_type))
-            number_of_object_to_object_relations = len(table_manager.get_object_interaction_table())
-            number_of_events = len(table_manager.get_event_index())
-            self.base_table_creation_times[event_type] = runtime
-            self.base_table_evaluation["event_type"].append(event_type)
-            self.base_table_evaluation["number_of_events"].append(number_of_events)
-            self.base_table_evaluation["number_of_objects"].append(
-                len(set(table_manager.get_object_evolutions_table()["ocel:oid"].values)))
-            self.base_table_evaluation["number_of_event_to_object_relations"].append(
-                number_of_event_to_object_relations)
-            self.base_table_evaluation["number_of_object_to_object_relations"].append(
-                number_of_object_to_object_relations)
-            self.base_table_evaluation["time"].append(runtime)
+                len(event_types)))
 
     def search_models(self, event_types, minimal_support):
         self.evaluation_records = {
