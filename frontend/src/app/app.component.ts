@@ -20,6 +20,9 @@ export class AppComponent {
   complementaryMode = false;
   mergeMode = false;
   searchComplete = false;
+  targetPatternDescription: string = "";
+  maxRuleAnteLength: number = 1;
+  minRuleAnteSupport: number = 0;
   eventTypes: EventType[] = [];
   filteredEventTypes: EventType[] = [];
   selectedEventTypes: EventType[] = [];
@@ -156,7 +159,6 @@ export class AppComponent {
       .subscribe((resp: any) => {
         console.log(resp)
         if (resp["resp"]) {
-          debugger
           let search_plans = this.searchPlans
           let filtered_search_plans = this.filteredSearchPlans
           if (filtered_search_plans && search_plans && event_type) {
@@ -186,11 +188,36 @@ export class AppComponent {
     })
   }
 
-  startSearch() {
+  startSearchModel() {
     if (!this.sessionKey) {
       return
     }
-    this.apiService.startSearch(this.sessionKey, this.minSupport, this.complementaryMode, this.mergeMode).subscribe(
+    this.modelMined = false
+    this.apiService.startSearchModel(this.sessionKey, this.minSupport, this.complementaryMode, this.mergeMode,
+      this.filteredSearchPlans
+    ).subscribe(
+      (resp: {model_evaluations: {[eventType: EventType]: ModelEvaluation},
+      all_patterns: {[eventType: EventType]: string[]}} ) => {
+      this.modelEvaluations = resp.model_evaluations
+      this.allPatterns = resp.all_patterns
+      this.modelMined = true
+    })
+  }
+
+  startSearchRules() {
+    if (!this.sessionKey) {
+      return
+    }
+    this.modelMined = false
+    this.apiService.startSearchRules(
+      this.sessionKey, 
+      this.targetPatternDescription,
+      this.maxRuleAnteLength,
+      this.minRuleAnteSupport,
+      this.complementaryMode, 
+      this.mergeMode,
+      this.filteredSearchPlans
+    ).subscribe(
       (resp: {model_evaluations: {[eventType: EventType]: ModelEvaluation},
       all_patterns: {[eventType: EventType]: string[]}} ) => {
       this.modelEvaluations = resp.model_evaluations
