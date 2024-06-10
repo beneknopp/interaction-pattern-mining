@@ -1,7 +1,7 @@
 <div class="container">
   <div class="left" #left>
-    <app-pattern-node *ngFor="let content of leftContents; let i = index" (mouseenter)="expandContainer()"
+    <app-pattern-node *ngFor="let content of contents; let i = index" (mouseenter)="expandContainer()"
       (mouseleave)="collapseContainer()" [support]="content[0]" [patternTeXs]="content[1]"
-      [fontSize]="fontSize"></app-pattern-node>
+      [fontSize]="fontSize" [showSupport]="showSupport"></app-pattern-node>
   </div>
 </div>

@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { catchError, tap } from 'rxjs/operators';
-import { EventType, ObjectType } from './dtos/utils';
+import { EventType, ObjectType, PatternID } from './dtos/utils';
+import { NotFoundError } from 'rxjs';
+import { SearchPlans } from './dtos/search_plans';
 
 @Injectable({
   providedIn: 'root'
@@ -51,24 +53,56 @@ export class ApiService {
     return this.http.post<any>(this.backendUrl + 'register-custom-pattern?session-key=' + session_key, body, { headers })
   }
 
-  startSearch(session_key: string, min_support:number, complementary_mode: boolean, merge_mode: boolean) {
-    return this.http.get<any>(this.backendUrl + '/search?session-key=' + session_key +
+  startSearchModel(session_key: string, min_support:number, complementary_mode: boolean, merge_mode: boolean,
+    search_plans: SearchPlans | undefined
+  ) {
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json'
+    });
+    let body_content = {
+      "selected-patterns": search_plans
+    }
+    const body = JSON.stringify(body_content);
+    return this.http.post<any>(this.backendUrl + '/search-model?session-key=' + session_key +
       '&complementary-mode=' + complementary_mode +
       '&merge-mode=' + merge_mode + 
-      '&min-support=' + min_support)
+      '&min-support=' + min_support,
+    body, {headers})
   }
 
-  getFilteredModel(session_key:string, split_pattern_ids: string[], event_type: EventType, object_types: ObjectType[]) {
+  startSearchRules(session_key: string, target_pattern_description: string, max_rule_ante_length: number, min_rule_ante_support: number, complementary_mode: boolean, merge_mode: boolean,
+    search_plans: SearchPlans | undefined
+  ) {
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json'
+    });
+    let body_content = {
+      "selected-patterns": search_plans
+    }
+    const body = JSON.stringify(body_content);
+    return this.http.post<any>(this.backendUrl + '/search-rules?session-key=' + session_key +
+      '&complementary-mode=' + complementary_mode +
+      '&merge-mode=' + merge_mode + 
+      '&target-pattern-description=' + target_pattern_description +
+      '&max-rule-ante-length=' + max_rule_ante_length +
+      '&min-rule-ante-support=' + min_rule_ante_support,
+    body, {headers})
+  }
+
+  getFilteredModel(session_key:string, event_type: EventType, object_types: ObjectType[]) {
     const headers = new HttpHeaders({
       'Content-Type': 'application/json'
     });
     let body_content = {
       "event-type": event_type,
       "object-types": object_types,
-      "split-pattern-ids": split_pattern_ids
     }
     const body = JSON.stringify(body_content);
     return this.http.post<any>(this.backendUrl + 'get-model?session-key=' + session_key, body, { headers })
+  }
+
+  getFilteredRules(session_key:string, split_pattern_ids: string[], event_type: EventType, object_types: ObjectType[]) {
+      throw NotFoundError
   }
 
 }

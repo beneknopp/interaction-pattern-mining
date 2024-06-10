@@ -29,7 +29,7 @@ class ObjectEvolutionsTable(Table):
         event_times = events["ocel:timestamp"].values
         mintime = min(min(event_times), min(change_times)) if len(change_times) > 0 else min(event_times)
         maxtime = max(max(event_times), max(change_times)) if len(change_times) > 0 else max(event_times)
-        maxtime = maxtime + np.timedelta64(365, 'D')
+        maxtime = maxtime + pd.Timedelta(365, 'D')
         changetimes = object_changes["ocel:timestamp"].values
         if len(changetimes) > 0:
             mintime = min(mintime, changetimes.min())

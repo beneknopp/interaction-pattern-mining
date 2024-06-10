@@ -73,6 +73,7 @@ body {
     width: 100%;
     min-height: 200px;
     outline: 2px solid black;
+    margin-bottom: -30px;
 }
 
 .pattern-selector {

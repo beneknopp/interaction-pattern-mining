@@ -8,6 +8,7 @@ import { Component, ElementRef, Input, ViewChild } from '@angular/core';
 export class ModelGraphComponent {
   
   @Input() fontSize: number = 10;
+  @Input() showSupport: boolean = true;
 
   collapseContainer() {
     throw new Error('Method not implemented.');
@@ -19,7 +20,6 @@ export class ModelGraphComponent {
   @ViewChild('left') left: ElementRef | undefined;
   @ViewChild('right') right: ElementRef | undefined;
 
-  @Input() leftContents: [number, string[]][] = []
-  @Input() rightContents: string[] = []
+  @Input() contents: [number, string[]][] = []
 
 }

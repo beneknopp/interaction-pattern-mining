@@ -41,7 +41,7 @@
       </div>
       <div class="content">
         <div class="button-container">
-          <button class="button" (click)="loadSearchPlans()" [disabled]="!eventTypesConfirmed">
+          <button class="button" (click)="loadSearchPlans()" z>
             Load Default Search Plans
           </button>
         </div>
@@ -94,7 +94,6 @@
           </select>
         </div>
       </div>
-
       <div class="content">
         <h3>Pattern Builder</h3>
         <div class="pattern-builder-container">
@@ -117,24 +116,44 @@
           </label>
         </div>
         <div class="min-support-selector">
-          <label for="myNumber">Support Infimum:</label>
+          <label for="myNumber">Support Infimum:   </label>
           <input style="width: 60px; font-size: 10pt;" type="number" id="myNumber"
             [(ngModel)]="minSupport" required>
         </div>
         <div class="button-container">
-          <button class="button" (click)="startSearch()" [disabled]="!logUploaded">
-            Start Search
+          <button class="button" (click)="startSearchModel()" [disabled]="!logUploaded">
+            Start Search (Model)
+          </button>
+        </div>
+        <!--<div class="min-support-selector">
+          <label for="myNumber">Rule Antecedents Length Maximum:   </label>
+          <input style="width: 60px; font-size: 10pt;" type="number" id="myNumber"
+            [(ngModel)]="maxRuleAnteLength" required [disabled]="!editedEventType">
+        </div>
+        <div class="min-support-selector">
+          <label for="myNumber">Rule Antecedent Support Infimum:   </label>
+          <input style="width: 60px; font-size: 10pt;" type="number" id="myNumber"
+            [(ngModel)]="minRuleAnteSupport" required [disabled]="!editedEventType">
+        </div>
+        <div class="min-support-selector">
+          <label for="myNumber">Target Pattern (Rule Conclusion):   </label>
+          <input [(ngModel)]="targetPatternDescription" placeholder="Enter text" class="pattern-builder"
+            [disabled]="!editedEventType">
+        </div>
+        <div class="button-container">
+          <button class="button" (click)="startSearchRules()" [disabled]="!logUploaded">
+            Start Search (Rules)
           </button>
         </div>
         <div>
           <label>Search complete?</label>
           <span *ngIf="modelMined">&#10003;</span>
-        </div>
+        </div> !-->
       </div>
     </div>
 
     <div class="column column-50">
-      <app-model-view [modelMined]="modelMined" [sessionKey]="sessionKey" [allPatterns]="allPatterns"
+      <app-model-view [modelMined]="modelMined" [sessionKey]="sessionKey"
         [modelEvaluations]="modelEvaluations" [eventTypes]="selectedEventTypes"
         [objectTypes]="uploadResponse?.event_type_object_types">
       </app-model-view>
