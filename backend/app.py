@@ -161,7 +161,7 @@ def searchModel():
     pamela.evaluationMode = EvaluationMode.TIME
     event_types = pamela.event_types_filter
     resp = pamela.search_models(event_types, selected_pattern_ids, minimal_support)
-    pamela.save_evaluation()
+    #pamela.save_evaluation()
     #pamela.save_split_evaluation()
     #pamela.visualize_global_scores()
     #pamela.visualize_splits()
