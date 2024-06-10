@@ -19,6 +19,18 @@ export class ModelEvaluation {
 }
 
 export class ModelResponse {
+    valid_patterns: PartitionResponse
+    partitions: {[partition_id: number]: PartitionResponse}
+    constructor(
+        valid_patterns: PartitionResponse,
+        partitions: {[partition_id: number]: PartitionResponse}
+    ) {
+        this.valid_patterns = valid_patterns
+        this.partitions = partitions
+    }
+}
+
+export class PartitionResponse {
     support: number
     pretty_pattern_ids: string[]
     pattern_ids: string[]
@@ -33,22 +45,6 @@ export class ModelResponse {
         this.pretty_pattern_ids = pretty_pattern_ids
         this.pattern_ids = pattern_ids
         this.argument_ids = argument_ids
-    }
-}
-
-export class PartitionResponse {
-    antecedent_ids: string[]
-    pretty_antecedent_ids: string[]
-    model_responses: { [partition_id: number]: ModelResponse }
-
-    constructor(
-        antecedent_ids: string[],
-        pretty_antecedent_ids: string[],
-        model_responses: { [partition_id: number]: ModelResponse }
-    ) {
-        this.antecedent_ids = antecedent_ids
-        this.pretty_antecedent_ids = pretty_antecedent_ids
-        this.model_responses = model_responses
     }
 }
 
