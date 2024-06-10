@@ -378,6 +378,18 @@ def get_oaval_eq_exists_pattern(object_variable: ObjectVariableArgument, attribu
         )
     )
 
+def get_oaval_eq_forall_pattern(object_variable: ObjectVariableArgument, attribute: str, value) -> UniversalPattern:
+    arguments = [object_variable]
+    return UniversalPattern(
+        object_variable,
+        FreePatternFormula(
+            FreePattern(
+                Oaval_eq(attribute, value),
+                arguments
+            )
+        )
+    )
+
 
 def get_e2o_exists_formula(object_variable: ObjectVariableArgument, qual: str) -> ExistentialPattern:
     arguments = [object_variable]

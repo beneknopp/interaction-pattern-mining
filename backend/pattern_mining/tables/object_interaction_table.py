@@ -47,12 +47,13 @@ class ObjectInteractionTable(Table):
             .drop(["ocel:oid", "ocel:oid_2"], axis=1)
         attributes = [col for col in object_evolutions.columns if col not in ["ocel:oid", "ox:from", "ox:to"]]
         interaction_table = interaction_table.merge(object_evolutions, left_on=["ocel:oid_x"], right_on=["ocel:oid"], how="inner")
-        interaction_table = interaction_table[(interaction_table['ocel:timestamp'] >= interaction_table['ox:from']) & (interaction_table['ocel:timestamp'] < interaction_table['ox:to'])]
+        interaction_table = interaction_table[(interaction_table['ocel:timestamp'] > interaction_table['ox:from'])
+                                            & (interaction_table['ocel:timestamp'] <= interaction_table['ox:to'])]
         interaction_table = interaction_table.rename(columns={key: key + "_x" for key in attributes})
         interaction_table = interaction_table.drop(["ox:from", "ox:to", "ocel:oid"], axis=1)
         interaction_table = interaction_table.merge(object_evolutions, left_on=["ocel:oid_y"], right_on=["ocel:oid"], how="inner")
-        interaction_table = interaction_table[(interaction_table['ocel:timestamp'] >= interaction_table['ox:from'])
-                                              & (interaction_table['ocel:timestamp'] < interaction_table['ox:to'])]
+        interaction_table = interaction_table[(interaction_table['ocel:timestamp'] > interaction_table['ox:from'])
+                                            & (interaction_table['ocel:timestamp'] <= interaction_table['ox:to'])]
         interaction_table = interaction_table.rename(columns={key: key + "_y" for key in attributes})
         interaction_table = interaction_table.drop(["ox:from", "ox:to", "ocel:oid"], axis=1)
         self.table = interaction_table

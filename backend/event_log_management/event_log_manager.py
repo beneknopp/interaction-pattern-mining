@@ -2,7 +2,8 @@ import os
 import pickle
 
 from flask import session
-from pm4py import read_ocel2_sqlite, read_ocel2_xml
+#from pm4py import read_ocel2_sqlite, read_ocel2_xml
+from event_log_management.load_ocel2_sqlite import load_ocel
 
 from utils.session_utils import get_session_path
 
@@ -41,9 +42,10 @@ class EventLogManager:
         file_path = os.path.join(session_path, self.name + "." + extension)
         file.save(file_path)
         if extension == "sqlite":
-            self.ocel = read_ocel2_sqlite(file_path)
+            self.ocel = load_ocel(file_path)
             return
         if extension == "xml":
-            self.ocel = read_ocel2_xml(file_path)
-            return
+            raise AttributeError()
+            #self.ocel = read_ocel2_xml(file_path)
+            #return
         raise ValueError()

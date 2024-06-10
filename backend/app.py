@@ -19,13 +19,15 @@ app.secret_key = '8a28ef91377b0cf89b5fdfdb32672036'
 @cross_origin()
 def upload_ocel():
     # try:
+    print("Uploading OCEL...")
     file = request.files['file']
     if file.filename == '':
         flash('No selected file')
         return Response.get(True)
     extension = get_file_extension(file.filename)
     if file and allowed_file(file.filename):
-        make_session()
+        session_key, session_path = make_session()
+        print("Creating session {0} for valid OCEL {1}".format(str(session_key), file.filename))
         elmo = EventLogManager()
         elmo.enter_transmitted_file(file, extension)
         pamela = PatternMiningManager(elmo.ocel)
@@ -61,6 +63,7 @@ def set_event_types():
     session_key = request.args.get('session-key')
     session['session_key'] = session_key
     selected_event_types = request.get_json()
+    print("Setting Event types {0} for session {1}".format(str(selected_event_types), str(session_key)))
     pamela: PatternMiningManager = PatternMiningManager.load()
     pamela.set_event_types_filter(selected_event_types)
     pamela.load_tables(selected_event_types)
@@ -87,6 +90,7 @@ def set_event_types():
 def load_search_plans():
     session_key = request.args.get('session-key')
     session['session_key'] = session_key
+    print("Loading search plans for session {0}".format(str(session_key)))
     pamela: PatternMiningManager = PatternMiningManager.load()
     event_types = pamela.event_types_filter
     pamela.load_default_search_plans(event_types)
@@ -141,29 +145,50 @@ def load_tables():
     return Response.get(True)
 
 
-@app.route('/search', methods=['GET'])
+@app.route('/search-model', methods=['GET', 'POST'])
 @cross_origin()
-def search():
+def searchModel():
     session_key = request.args.get('session-key')
     complementary_mode = request.args.get('complementary-mode')
     merge_mode = request.args.get('merge-mode')
     minimal_support = float(request.args.get('min-support'))
     session['session_key'] = session_key
+    body = request.get_json()
+    selected_pattern_ids = body["selected-patterns"]
     pamela: PatternMiningManager = PatternMiningManager.load()
     pamela.complementaryMode = True if complementary_mode == "true" else False
     pamela.mergeMode = True if merge_mode == "true" else False
-    pamela.doSplit = True
-    pamela.maxSplitRecursionDepth = 1
     pamela.evaluationMode = EvaluationMode.TIME
     event_types = pamela.event_types_filter
-    resp = pamela.search_models(event_types, minimal_support)
-    #pamela.save_evaluation()
+    resp = pamela.search_models(event_types, selected_pattern_ids, minimal_support)
+    pamela.save_evaluation()
     #pamela.save_split_evaluation()
     #pamela.visualize_global_scores()
     #pamela.visualize_splits()
     pamela.save()
     #resp = pamela.get_model_response()
     return resp
+
+@app.route('/search-rules', methods=['GET', 'POST'])
+@cross_origin()
+def searchRules():
+    session_key = request.args.get('session-key')
+    complementary_mode = request.args.get('complementary-mode')
+    merge_mode = request.args.get('merge-mode')
+    target_pattern_description = str(request.args.get('target-pattern-description'))
+    max_rule_ante_length = int(request.args.get('max-rule-ante-length'))
+    min_rule_ante_support = float(request.args.get('min-rule-ante-support'))
+    session['session_key'] = session_key
+    body = request.get_json()
+    selected_pattern_ids = body["selected-patterns"]
+    pamela: PatternMiningManager = PatternMiningManager.load()
+    pamela.complementaryMode = True if complementary_mode == "true" else False
+    pamela.mergeMode = True if merge_mode == "true" else False
+    pamela.maxSplitRecursionDepth = 1
+    event_types = pamela.event_types_filter
+    pamela.search_rules(event_types, selected_pattern_ids, target_pattern_description, max_rule_ante_length, min_rule_ante_support)
+    pamela.save()
+    return Response.get(True)
 
 
 @app.route('/get-model', methods=['GET','POST'])
@@ -175,9 +200,13 @@ def get_model():
     body = request.get_json()
     event_type = body["event-type"]
     object_types = body["object-types"]
-    pattern_ids = body["split-pattern-ids"]
-    resp = pamela.get_split_response(event_type, pattern_ids, object_types)
+    resp = pamela.get_model_response(event_type, object_types)
     return resp
+
+@app.route('/get-rules', methods=['GET','POST'])
+@cross_origin()
+def get_rules():
+    raise NotImplementedError()
 
 
 if __name__ == '__main__':

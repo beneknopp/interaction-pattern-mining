@@ -32,7 +32,11 @@ class Eaval_eq(PatternFunction):
         return "eaval_eq_{" + self.eventAttribute + "," + str(self.value) + "}"
 
     def to_TeX(self, args):
-        return self.eventAttribute + "=" + str(self.value)
+        # avoid double subscript issues
+        event_attribute = self.eventAttribute.replace("_", "\\_")
+        value = str(self.value)
+        value= value.replace("_", "\\_")
+        return event_attribute + "=" + value
 
 
 class Eaval_leq(PatternFunction):
@@ -56,7 +60,11 @@ class Eaval_leq(PatternFunction):
         return "eaval_leq_{" + self.eventAttribute + "," + str(self.value) + "}"
 
     def to_TeX(self, args):
-        return self.eventAttribute + "\\leq" + str(self.value)
+        # avoid double subscript issues
+        event_attribute = self.eventAttribute.replace("_", "\\_")
+        value = str(self.value)
+        value= value.replace("_", "\\_")
+        return event_attribute + "\\leq" + value
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
@@ -83,7 +91,11 @@ class Eaval_geq(PatternFunction):
         return "eaval_geq_{" + self.eventAttribute + "," + str(self.value) + "}"
 
     def to_TeX(self, args):
-        return self.eventAttribute + "\\geq" + str(self.value)
+        # avoid double subscript issues
+        event_attribute = self.eventAttribute.replace("_", "\\_")
+        value = str(self.value)
+        value= value.replace("_", "\\_")
+        return event_attribute + "\\geq" + value
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
@@ -116,7 +128,11 @@ class Oaval_eq(PatternFunction):
         return "oaval_eq_{" + self.objectAttribute + "," + str(self.value) + "}"
 
     def to_TeX(self, args):
-        return self.objectAttribute + "(" + args[0] + ")" + "=" + str(self.value)
+        # avoid double subscript issues
+        object_attribute = self.objectAttribute.replace("_", "\\_")
+        value = str(self.value)
+        value= value.replace("_", "\\_")
+        return object_attribute + "(" + args[0] + ")" + "=" + value
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
@@ -148,7 +164,11 @@ class Oaval_leq(PatternFunction):
         return "oaval_leq_{" + self.objectAttribute + "," + str(self.value) + "}"
 
     def to_TeX(self, args):
-        return self.objectAttribute + "(" + args[0] + ")" + "\\leq" + str(self.value)
+        # avoid double subscript issues
+        object_attribute = self.objectAttribute.replace("_", "\\_")
+        value = str(self.value)
+        value= value.replace("_", "\\_")
+        return object_attribute + "(" + args[0] + ")" + "\\leq" + value
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()
@@ -180,7 +200,11 @@ class Oaval_geq(PatternFunction):
         return "oaval_geq_{" + self.objectAttribute + "," + str(self.value) + "}"
 
     def to_TeX(self, args):
-        return self.objectAttribute + "(" + args[0] + ")" + "\\geq" + str(self.value)
+        # avoid double subscript issues
+        object_attribute = self.objectAttribute.replace("_", "\\_")
+        value = str(self.value)
+        value= value.replace("_", "\\_")
+        return object_attribute + "(" + args[0] + ")" + "\\geq" + value
 
     def get_ebnf_descriptor(self):
         raise NotImplementedError()

@@ -43,9 +43,12 @@ class ObjectEvolutionsTable(Table):
         object_evolutions.drop("ocel:type", axis=1, inplace=True)
         object_evolutions["ox:to"] = pd.to_datetime(maxtime, utc=False)
         object_evolutions.sort_values(["ocel:oid", "ox:from"], inplace=True)
+        mask = object_evolutions["ocel:oid"] == object_evolutions["ocel:oid"].shift(-1)
+        object_evolutions.loc[mask, "ox:to"] = object_evolutions["ox:from"].shift(-1)
         not_attribute_columns = ["ocel:oid", "ocel:type", "ocel:field", "ox:from", "ox:to"]
         attribute_columns = [col for col in object_evolutions.columns if col not in not_attribute_columns]
         object_evolutions[attribute_columns] = object_evolutions.groupby('ocel:oid', group_keys=False).apply(
-            lambda group: group[attribute_columns].fillna(method='ffill'))
+            lambda group: group[attribute_columns].fillna(method='ffill')
+        )
         object_evolutions.drop("ocel:field", axis=1, inplace=True)
         self.table = object_evolutions
