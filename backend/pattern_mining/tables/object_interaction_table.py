@@ -40,20 +40,25 @@ class ObjectInteractionTable(Table):
             .rename(columns={'ocel:timestamp_x': 'ocel:timestamp'}) \
             .drop("ocel:timestamp_y", axis=1)
         # change to left join if also interested in interactions between non-iterrelated objects
+        # Filter. Assumption here: only related objects are interesting
+
         # for example, for comparing object attributes between objects that are not in a qualified relationship
         #.merge(o2o, left_on=['ocel:oid_x', 'ocel:oid_y'], right_on=["ocel:oid", "ocel:oid_2"], how='left') \
         interaction_table = interaction_table \
             .merge(o2o, left_on=['ocel:oid_x', 'ocel:oid_y'], right_on=["ocel:oid", "ocel:oid_2"], how='inner') \
             .drop(["ocel:oid", "ocel:oid_2"], axis=1)
         attributes = [col for col in object_evolutions.columns if col not in ["ocel:oid", "ox:from", "ox:to"]]
-        interaction_table = interaction_table.merge(object_evolutions, left_on=["ocel:oid_x"], right_on=["ocel:oid"], how="inner")
+        object_evolutions_windows = object_evolutions[["object_evolution_index", "ocel:oid", "ox:from", "ox:to"]]
+        interaction_table = interaction_table.merge(object_evolutions_windows, left_on=["ocel:oid_x"], right_on=["ocel:oid"], how="inner")
         interaction_table = interaction_table[(interaction_table['ocel:timestamp'] > interaction_table['ox:from'])
                                             & (interaction_table['ocel:timestamp'] <= interaction_table['ox:to'])]
+        interaction_table = interaction_table.rename(columns={"object_evolution_index": "object_evolution_index_x"})
         interaction_table = interaction_table.rename(columns={key: key + "_x" for key in attributes})
         interaction_table = interaction_table.drop(["ox:from", "ox:to", "ocel:oid"], axis=1)
-        interaction_table = interaction_table.merge(object_evolutions, left_on=["ocel:oid_y"], right_on=["ocel:oid"], how="inner")
+        interaction_table = interaction_table.merge(object_evolutions_windows, left_on=["ocel:oid_y"], right_on=["ocel:oid"], how="inner")
         interaction_table = interaction_table[(interaction_table['ocel:timestamp'] > interaction_table['ox:from'])
                                             & (interaction_table['ocel:timestamp'] <= interaction_table['ox:to'])]
+        interaction_table = interaction_table.rename(columns={"object_evolution_index": "object_evolution_index_y"})
         interaction_table = interaction_table.rename(columns={key: key + "_y" for key in attributes})
         interaction_table = interaction_table.drop(["ox:from", "ox:to", "ocel:oid"], axis=1)
         self.table = interaction_table

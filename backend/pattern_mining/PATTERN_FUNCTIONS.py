@@ -118,10 +118,14 @@ class Oaval_eq(PatternFunction):
         arg: ObjectVariableArgument = arguments[0]
         variable_id = arg.id
         object_type = arg.objectType
+        object_attribute = self.objectAttribute
+        object_evolutions = table_manager.get_object_evolutions_table()
+        object_evolutions = object_evolutions[["object_evolution_index", object_attribute]]
         evaluated = table_manager.get_event_interaction_table()
-        evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
         evaluated = evaluated[evaluated["ocel:type"] == object_type]
-        evaluated["ox:evaluation"] = evaluated[self.objectAttribute] == self.value
+        evaluated = evaluated.merge(object_evolutions, on="object_evolution_index")
+        evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
+        evaluated["ox:evaluation"] = evaluated[object_attribute] == self.value
         return evaluated[["ocel:eid", variable_id, "ox:evaluation"]]
 
     def to_string(self):
@@ -154,9 +158,13 @@ class Oaval_leq(PatternFunction):
         arg: ObjectVariableArgument = arguments[0]
         variable_id = arg.id
         object_type = arg.objectType
+        object_attribute = self.objectAttribute
+        object_evolutions = table_manager.get_object_evolutions_table()
+        object_evolutions = object_evolutions[["object_evolution_index", object_attribute]]
         evaluated = table_manager.get_event_interaction_table()
-        evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
         evaluated = evaluated[evaluated["ocel:type"] == object_type]
+        evaluated = evaluated.merge(object_evolutions, on="object_evolution_index")
+        evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
         evaluated["ox:evaluation"] = evaluated[self.objectAttribute] <= self.value
         return evaluated[["ocel:eid", variable_id, "ox:evaluation"]]
 
@@ -190,9 +198,13 @@ class Oaval_geq(PatternFunction):
         arg: ObjectVariableArgument = arguments[0]
         variable_id = arg.id
         object_type = arg.objectType
+        object_attribute = self.objectAttribute
+        object_evolutions = table_manager.get_object_evolutions_table()
+        object_evolutions = object_evolutions[["object_evolution_index", object_attribute]]
         evaluated = table_manager.get_event_interaction_table()
-        evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
         evaluated = evaluated[evaluated["ocel:type"] == object_type]
+        evaluated = evaluated.merge(object_evolutions, on="object_evolution_index")
+        evaluated.rename(columns={"ocel:oid": variable_id}, inplace=True)
         evaluated["ox:evaluation"] = evaluated[self.objectAttribute] >= self.value
         return evaluated[["ocel:eid", variable_id, "ox:evaluation"]]
 

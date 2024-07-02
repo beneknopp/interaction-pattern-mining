@@ -428,6 +428,7 @@ class PatternMiningManager:
                     self.__add_basic_pattern(event_type, eaval_eq_exists_pattern)
 
     def __make_object_attributes_default_patterns(self, event_type):
+        table_manager = self.table_managers[event_type]
         self.object_categorical_attribute_patterns[event_type] = {}
         for object_type in self.event_types_object_types[event_type]:
             self.object_categorical_attribute_patterns[event_type][object_type] = {}
@@ -435,6 +436,15 @@ class PatternMiningManager:
             object_variable_argument = ObjectVariableArgument(object_type, object_variable_id)
             for attribute, dtype in self.object_attribute_data_types[object_type].items():
                 if is_categorical_data_type(dtype):
+                    e2o_exploded = table_manager.get_event_interaction_table()
+                    e2o_exploded = e2o_exploded[e2o_exploded["ocel:type"] == object_type]
+                    object_evolutions = table_manager.get_object_evolutions_table()
+                    object_evolutions = object_evolutions[[attribute, "object_evolution_index"]]
+                    e2o_exploded = e2o_exploded.merge(
+                        object_evolutions,
+                        on="object_evolution_index"
+                    )
+                    labels = e2o_exploded[attribute].unique()
                     e2o_exploded = self.table_managers[event_type].eventInteractionTable.table
                     labels = e2o_exploded[e2o_exploded["ocel:type"] == object_type][attribute].unique()
                     if len(labels) > self.categoricalVariablesMaxLabelsOBJECT:
