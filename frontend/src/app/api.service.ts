@@ -52,24 +52,7 @@ export class ApiService {
     const body = JSON.stringify(body_content);
     return this.http.post<any>(this.backendUrl + 'register-custom-pattern?session-key=' + session_key, body, { headers })
   }
-
-  startSearchModel(session_key: string, min_support:number, complementary_mode: boolean, merge_mode: boolean,
-    search_plans: SearchPlans | undefined
-  ) {
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json'
-    });
-    let body_content = {
-      "selected-patterns": search_plans
-    }
-    const body = JSON.stringify(body_content);
-    return this.http.post<any>(this.backendUrl + '/search-model?session-key=' + session_key +
-      '&complementary-mode=' + complementary_mode +
-      '&merge-mode=' + merge_mode + 
-      '&min-support=' + min_support,
-    body, {headers})
-  }
-
+  
   startSearchRules(session_key: string, target_pattern_description: string, max_rule_ante_length: number, min_rule_ante_support: number, complementary_mode: boolean, merge_mode: boolean,
     search_plans: SearchPlans | undefined
   ) {

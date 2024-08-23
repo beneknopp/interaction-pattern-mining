@@ -39,6 +39,7 @@ export class AppComponent {
   allPatterns: { [eventType: EventType]: string[] } = {};
   modelEvaluations: { [eventType: EventType]: ModelEvaluation} = {}
   minSupport: number = 0;
+  isEBNFBoxVisible: boolean = false;
 
   constructor(
     private apiService: ApiService
@@ -188,22 +189,6 @@ export class AppComponent {
     })
   }
 
-  startSearchModel() {
-    if (!this.sessionKey) {
-      return
-    }
-    this.modelMined = false
-    this.apiService.startSearchModel(this.sessionKey, this.minSupport, this.complementaryMode, this.mergeMode,
-      this.filteredSearchPlans
-    ).subscribe(
-      (resp: {model_evaluations: {[eventType: EventType]: ModelEvaluation},
-      all_patterns: {[eventType: EventType]: string[]}} ) => {
-      this.modelEvaluations = resp.model_evaluations
-      this.allPatterns = resp.all_patterns
-      this.modelMined = true
-    })
-  }
-
   startSearchRules() {
     if (!this.sessionKey) {
       return
@@ -224,6 +209,10 @@ export class AppComponent {
       this.allPatterns = resp.all_patterns
       this.modelMined = true
     })
+  }
+
+  toggleEBNFBox() {
+    this.isEBNFBoxVisible = !this.isEBNFBoxVisible; // Toggle the visibility of the textbox
   }
 
 }

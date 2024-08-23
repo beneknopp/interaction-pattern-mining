@@ -11,7 +11,7 @@
   </div>
 
   <div class="columns-container">
-    <div class="column column-25">
+    <div class="column column-15">
       <div class="content">
         <div class="button-container">
           <button class="button" (click)="fileInput.click()">
@@ -96,55 +96,188 @@
       </div>
       <div class="content">
         <h3>Pattern Builder</h3>
-        <div class="pattern-builder-container">
-          <input [(ngModel)]="customPatternDescription" placeholder="Enter text" class="pattern-builder"
+        <div class="pattern-builder-input-container">
+          <input [(ngModel)]="customPatternDescription" placeholder="Enter Pattern" class="pattern-builder"
             [disabled]="!editedEventType">
           <button (click)="onConfirmCustomPattern()" class="pattern-builder-confirm"
             [disabled]="!editedEventType">Confirm</button>
+          <button (click)="toggleEBNFBox()" class="pattern-builder-ebnf-toggle" [class.active]="isEBNFBoxVisible">Show Syntax</button>
+        </div>
+        <div class="pattern-builder-ebnf-box" *ngIf="isEBNFBoxVisible">
+          <p> 
+            <span style="color: green;">Example: ex(X, oaval_eq_(a,v)(X))</span><br><br>
+            <span style="color: blue;">Pattern</span> 
+            <span style="color: black;"> = </span> 
+            <span style="color: red;"> "ex(" </span>,
+            <span style="color: blue;"> Variable </span>,
+            <span style="color: red;"> "," </span>,
+            <span style="color: blue;"> Pattern </span>,
+            <span style="color: red;"> ")" </span>
+             | 
+            <br>
+          <span style="color: #f2f2f2;">Pattern</span> 
+          <span style="color: #f2f2f2;"> = </span> 
+          <span style="color: red;"> "all(" </span>,
+          <span style="color: blue;"> Variable </span>,
+          <span style="color: red;"> "," </span>,
+          <span style="color: blue;"> Pattern </span>,
+          <span style="color: red;"> ")" </span>
+           | 
+          <br>
+          <span style="color: #f2f2f2;">Pattern</span> 
+          <span style="color: #f2f2f2;"> = </span> 
+          <span style="color: red;"> "or(" </span>,
+          <span style="color: blue;"> Pattern </span>,
+          <span style="color: red;"> "," </span>,
+          <span style="color: blue;"> Pattern </span>,
+          <span style="color: red;"> ")" </span>
+           | 
+          <br>
+          <span style="color: #f2f2f2;">Pattern</span> 
+          <span style="color: #f2f2f2;"> = </span> 
+          <span style="color: red;"> "and(" </span>,
+          <span style="color: blue;"> Pattern </span>,
+          <span style="color: red;"> "," </span>,
+          <span style="color: blue;"> Pattern </span>,
+          <span style="color: red;"> ")" </span>
+           | 
+          <br>          
+          <span style="color: #f2f2f2;">Pattern</span> 
+          <span style="color: #f2f2f2;"> = </span> 
+          <span style="color: red;"> "not(" </span>,
+          <span style="color: blue;"> Pattern </span>,
+          <span style="color: red;"> ")" </span>
+           | 
+          <br>
+          <span style="color: #f2f2f2;">Pattern</span> 
+          <span style="color: #f2f2f2;"> = </span> 
+          <span style="color: blue;"> Term </span>;
+
+          <br>
+          <span style="color: blue;">Term</span> 
+          <span style="color: grey;"> = </span> 
+          <span style="color: blue;"> PatternFunction </span>,
+          <span style="color: blue;"> Parameters </span>
+          <br>
+          <span style="color: blue;">Parameters</span> 
+          <span style="color: grey;"> = </span> 
+          <span style="color: red;"> "(" </span>,
+          (
+          <span style="color: blue;"> Variable </span>,
+          <span style="color: red;">","</span>?
+          )+,
+          <span style="color: red;"> ")" </span>;
+
+          <br>
+          <span style="color: blue;">PatternFunction</span> 
+          <span style="color: grey;"> = </span> 
+          <span style="color: red;"> "oaval_eq_(" </span>,
+          <span style="color: blue;">Attribute</span>,
+          <span style="color: red;"> "," </span>,
+          <span style="color: blue;">Value</span>,
+          <span style="color: red;"> ")" </span>
+          |
+          <br>
+          <span style="color: #f2f2f2;">PatternFunction</span> 
+          <span style="color: #f2f2f2;"> = </span> 
+          <span style="color: red;"> "eaval_eq_(" </span>,
+          <span style="color: blue;">Attribute</span>,
+          <span style="color: red;"> "," </span>,
+          <span style="color: blue;">Value</span>,
+          <span style="color: red;"> ")" </span>
+          |
+          <br>
+          <span style="color: #f2f2f2;">PatternFunction</span> 
+          <span style="color: #f2f2f2;"> = </span> 
+          <span style="color: red;"> "ot_card_(" </span>,
+          <span style="color: blue;">ObjectType</span>,
+          <span style="color: red;"> "," </span>,
+          <span style="color: blue;">Cardinality</span>,
+          <span style="color: red;"> ")" </span>
+          |
+          <br>
+          <span style="color: #f2f2f2;">PatternFunction</span> 
+          <span style="color: #f2f2f2;"> = </span> 
+          <span style="color: red;"> "o2o_(" </span>,
+          <span style="color: blue;">Relation</span>,
+          <span style="color: red;"> ")" </span>
+          |
+          <br>
+          <span style="color: #f2f2f2;">PatternFunction</span> 
+          <span style="color: #f2f2f2;"> = </span> 
+          <span style="color: red;"> "e2o_(" </span>,
+          <span style="color: blue;">Relation</span>,
+          <span style="color: red;"> ")" </span>;          
+
+          <br>
+          <span style="color: blue;">Variable</span> 
+          <span style="color: grey;"> = </span> 
+          <span style="color: blue;">string</span>;          
+
+          <br>
+          <span style="color: blue;">Attribute</span> 
+          <span style="color: grey;"> = </span> 
+          <span style="color: blue;">string</span>;
+
+          <br>
+          <span style="color: blue;">Value</span> 
+          <span style="color: grey;"> = </span> 
+          <span style="color: blue;">string</span>;
+
+          <br>
+          <span style="color: blue;">Relation</span> 
+          <span style="color: grey;"> = </span> 
+          <span style="color: blue;">string</span>;          
+
+          <br>
+          <span style="color: blue;">Cardinality</span> 
+          <span style="color: grey;"> = </span>
+          <span style="color: blue;">int</span>;
+
+          <br>
+          <span style="color: blue;">ObjectType</span> 
+          <span style="color: grey;"> = </span> 
+          <span style="color: blue;">string</span>;
+          </p>       
         </div>
       </div>
 
       <div class="content">
-        <div>
-          <label>
-            <input type="checkbox" [(ngModel)]="complementaryMode"> Complementary Mode
+        <div class="parameter-selector">
+          <label >
+            <input type="checkbox" [(ngModel)]="complementaryMode" > Complementary Mode
           </label>
         </div>
-        <div>
+        <div class="parameter-selector">
           <label>
             <input type="checkbox" [(ngModel)]="mergeMode"> Merge Mode
           </label>
         </div>
-        <div class="min-support-selector">
-          <label for="myNumber">Support Infimum:   </label>
-          <input style="width: 60px; font-size: 10pt;" type="number" id="myNumber"
+        <div class="parameter-selector">
+          <label for="inp-suppInf">Support Infimum:   </label>
+          <input style="width: 60px; font-size: 8pt;" type="number" id="inp-suppInf"
             [(ngModel)]="minSupport" required>
         </div>
-        <div class="button-container">
-          <button class="button" (click)="startSearchModel()" [disabled]="!logUploaded">
-            Start Search (Model)
-          </button>
-        </div>
-        <!--<div class="min-support-selector">
-          <label for="myNumber">Rule Antecedents Length Maximum:   </label>
-          <input style="width: 60px; font-size: 10pt;" type="number" id="myNumber"
+        <div class="parameter-selector">
+          <label for="inp-anteLengthMax">Rule Antecedents Length Maximum:   </label>
+          <input style="width: 60px; font-size: 8pt;" type="number" id="inp-anteLengthMax"
             [(ngModel)]="maxRuleAnteLength" required [disabled]="!editedEventType">
         </div>
-        <div class="min-support-selector">
-          <label for="myNumber">Rule Antecedent Support Infimum:   </label>
-          <input style="width: 60px; font-size: 10pt;" type="number" id="myNumber"
+        <div class="parameter-selector">
+          <label for="inp-ruleAnteSuppInf">Rule Antecedent Support Infimum:   </label>
+          <input style="width: 60px; font-size: 8pt;" type="number" id="inp-ruleAnteSuppInf"
             [(ngModel)]="minRuleAnteSupport" required [disabled]="!editedEventType">
         </div>
-        <div class="min-support-selector">
-          <label for="myNumber">Target Pattern (Rule Conclusion):   </label>
-          <input [(ngModel)]="targetPatternDescription" placeholder="Enter text" class="pattern-builder"
-            [disabled]="!editedEventType">
+        <div class="parameter-selector">
+          <label for="inp-targetPattern">Target Pattern (Rule Conclusion):   </label>
+          <input [(ngModel)]="targetPatternDescription" placeholder="Enter Target Pattern" class="pattern-builder"
+            [disabled]="!editedEventType" id="inp-targetPattern">
         </div>
         <div class="button-container">
           <button class="button" (click)="startSearchRules()" [disabled]="!logUploaded">
             Start Search (Rules)
           </button>
-        </div>!-->
+        </div>
         <div>
           <label>Search complete?</label>
           <span *ngIf="modelMined">&#10003;</span>

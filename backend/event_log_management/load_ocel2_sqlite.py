@@ -27,9 +27,10 @@ class Parameters(Enum):
 
 def load_ocel(file_path, filters=None, acts=None, seed_type= None, seed_objects=None, red_flag_acts=None):
     parameters = {}
-    
+
     import sqlite3
     conn = sqlite3.connect(file_path)
+
     
     validation = exec_utils.get_param_value(Parameters.VALIDATION, parameters, True)
     except_if_invalid = exec_utils.get_param_value(Parameters.EXCEPT_IF_INVALID, parameters, False)

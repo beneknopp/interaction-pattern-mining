@@ -97,9 +97,9 @@ def load_search_plans():
     resp = {
         "patterns": {
             event_type: {
-                "basic_patterns" : list(pamela.searched_basic_patterns[event_type].keys()),
+                "basic_patterns" : sorted(list(pamela.searched_basic_patterns[event_type].keys())),
                 "interaction_patterns": {
-                        object_type: list(patterns.keys())
+                        object_type: sorted(list(patterns.keys()))
                         for object_type, patterns in pamela.searched_interaction_patterns[event_type].items()
                 },
                 "custom_patterns": list(pamela.custom_patterns[event_type].keys())

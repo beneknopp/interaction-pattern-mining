@@ -236,7 +236,8 @@ class Ot_card(PatternFunction):
 
     def create_function_evaluation_table(self, table_manager: TableManager, arguments):
         interaction_table = table_manager.get_event_interaction_table()
-        evaluated = interaction_table.groupby("ocel:eid").apply(lambda group: group[group["ocel:type"] == self.objectType]["ocel:oid"].nunique())\
+        evaluated = interaction_table[interaction_table["ocel:type"] == self.objectType]\
+            .groupby("ocel:eid").size()\
             .reset_index(name="card")
         evaluated["ox:evaluation"] = evaluated["card"] == self.card
         return evaluated[["ocel:eid", "ox:evaluation"]]
