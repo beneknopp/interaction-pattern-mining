@@ -111,7 +111,7 @@
         <div class="pattern-builder-ebnf-box" *ngIf="isEBNFBoxVisible">
           <p><span style="color: green;">Variable prefices for object types: {{variableTypePrefices}}</span></p>
           <p><span style="color: green;">A typed variable is constructed with the according prefix plus an integer.</span></p>
-          <span style="color: green;">Example for a pattern: ex(i1, oaval_eq_(a,v)(i1)) if "i" is the variable prefix for the object type of the predicate oaval_eq_(a,v) </span><br>
+          <span style="color: green;">Example for a pattern: ex(i1, oaval_eq_{{ '{' }}a,v{{ '}' }}(i1)) if "i" is the variable prefix for the object type of the predicate oaval_eq_(a,v) </span><br>
           <p> 
             <span style="color: blue;">Pattern</span> 
             <span style="color: black;"> = </span> 
@@ -178,43 +178,43 @@
           <br>
           <span style="color: blue;">PatternFunction</span> 
           <span style="color: grey;"> = </span> 
-          <span style="color: red;"> "oaval_eq_(" </span>,
+          <span style="color: red;"> "eaval_eq_{{ '{' }}" </span>,
           <span style="color: blue;">Attribute</span>,
           <span style="color: red;"> "," </span>,
           <span style="color: blue;">Value</span>,
-          <span style="color: red;"> ")" </span> 
-          | <span style="color: green;"> -- Arity 1 - Object attribute equals. Use leq, geq, lt, gt for other comparators (less or equal,...) </span> 
-          <br>          
+          <span style="color: red;"> "{{ '}' }}" </span>
+          | <span style="color: green;"> -- Arity 0 - Event attribute equals. Use leq, geq, lt, gt for other comparators (less or equal,...) </span> 
+          <br>                    
           <span style="color: #f2f2f2;">PatternFunction</span> 
           <span style="color: #f2f2f2;"> = </span> 
-          <span style="color: red;"> "eaval_eq_(" </span>,
+          <span style="color: red;"> "oaval_eq_{{ '{' }}" </span>,
           <span style="color: blue;">Attribute</span>,
           <span style="color: red;"> "," </span>,
           <span style="color: blue;">Value</span>,
-          <span style="color: red;"> ")" </span>
-          | <span style="color: green;"> -- Arity 0 - Event attribute equals. Use leq, geq, lt, gt for other comparators (less or equal,...) </span> 
+          <span style="color: red;"> "{{ '}' }}" </span> 
+          | <span style="color: green;"> -- Arity 1 - Object attribute equals. Use leq, geq, lt, gt for other comparators (less or equal,...) </span> 
           <br>
           <span style="color: #f2f2f2;">PatternFunction</span> 
           <span style="color: #f2f2f2;"> = </span> 
-          <span style="color: red;"> "ot_card_(" </span>,
+          <span style="color: red;"> "ot_card_{{ '{' }}" </span>,
           <span style="color: blue;">ObjectType</span>,
           <span style="color: red;"> "," </span>,
           <span style="color: blue;">Cardinality</span>,
-          <span style="color: red;"> ")" </span>
+          <span style="color: red;"> "{{ '}' }}" </span>
           | <span style="color: green;"> -- Arity 0 - Cardinality of object type at event </span> 
           <br>
           <span style="color: #f2f2f2;">PatternFunction</span> 
           <span style="color: #f2f2f2;"> = </span> 
-          <span style="color: red;"> "o2o_(" </span>,
+          <span style="color: red;"> "e2o_{{ '{' }}" </span>,
           <span style="color: blue;">Relation</span>,
-          <span style="color: red;"> ")" </span>
-          | <span style="color: green;"> -- Arity 2 - Two objects are in a specific relationship with each other </span>
+          <span style="color: red;"> "{{ '}' }}" </span> <span style="color: green;"> -- Arity 1 - An object is in a specific relationship with the event </span>;          
           <br>
           <span style="color: #f2f2f2;">PatternFunction</span> 
           <span style="color: #f2f2f2;"> = </span> 
-          <span style="color: red;"> "e2o_(" </span>,
+          <span style="color: red;"> "o2o_{{ '{' }}" </span>,
           <span style="color: blue;">Relation</span>,
-          <span style="color: red;"> ")" </span> <span style="color: green;"> -- Arity 1 - An object is in a specific relationship with the event </span>;          
+          <span style="color: red;"> "{{ '}' }}" </span>
+          | <span style="color: green;"> -- Arity 2 - Two objects are in a specific relationship with each other </span>
           <br>
           <span style="color: blue;">Variable</span> 
           <span style="color: grey;"> = </span> 
