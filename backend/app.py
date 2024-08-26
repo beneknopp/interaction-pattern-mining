@@ -1,4 +1,4 @@
-from flask import Flask, flash, request, session
+from flask import Flask, flash, request, session, send_file
 from flask_cors import cross_origin
 
 from dtos.response import Response
@@ -12,8 +12,6 @@ from utils.session_utils import allowed_file, make_session, get_file_extension
 
 app = Flask(__name__)
 app.secret_key = '8a28ef91377b0cf89b5fdfdb32672036'
-#import warnings
-#warnings.filterwarnings("error")
 
 @app.route('/upload-ocel', methods=['GET', 'POST'])
 @cross_origin()
@@ -67,7 +65,6 @@ def set_event_types():
     pamela: PatternMiningManager = PatternMiningManager.load()
     pamela.set_event_types_filter(selected_event_types)
     pamela.load_tables(selected_event_types)
-    pamela.save_base_table_evaluation()
     resp = {
         "patterns": {
             event_type: {
@@ -90,8 +87,11 @@ def set_event_types():
 def load_search_plans():
     session_key = request.args.get('session-key')
     session['session_key'] = session_key
+    max_attr_labels = int(request.args.get('max-attr-labels'))
     print("Loading search plans for session {0}".format(str(session_key)))
     pamela: PatternMiningManager = PatternMiningManager.load()
+    pamela.categoricalVariablesMaxLabelsEVENT  = max_attr_labels
+    pamela.categoricalVariablesMaxLabelsOBJECT = max_attr_labels
     event_types = pamela.event_types_filter
     pamela.load_default_search_plans(event_types)
     resp = {
@@ -110,6 +110,14 @@ def load_search_plans():
     pamela.save()
     return resp
 
+@app.route('/variable-prefixes-lookup', methods=['GET'])
+@cross_origin()
+def get_variable_prefixes_lookup():
+    session_key = request.args.get('session-key')
+    session['session_key'] = session_key
+    pamela: PatternMiningManager = PatternMiningManager.load()
+    resp = pamela.variable_prefixes_reverse
+    return resp
 
 @app.route('/register-custom-pattern', methods=['GET', 'POST'])
 @cross_origin()
@@ -139,35 +147,8 @@ def load_tables():
     pamela: PatternMiningManager = PatternMiningManager.load()
     event_types = pamela.event_types_filter
     pamela.load_tables(event_types)
-    pamela.save_base_table_evaluation()
-    #pamela.visualize_base_table_creation_eval()
     pamela.save()
     return Response.get(True)
-
-
-@app.route('/search-model', methods=['GET', 'POST'])
-@cross_origin()
-def searchModel():
-    session_key = request.args.get('session-key')
-    complementary_mode = request.args.get('complementary-mode')
-    merge_mode = request.args.get('merge-mode')
-    minimal_support = float(request.args.get('min-support'))
-    session['session_key'] = session_key
-    body = request.get_json()
-    selected_pattern_ids = body["selected-patterns"]
-    pamela: PatternMiningManager = PatternMiningManager.load()
-    pamela.complementaryMode = True if complementary_mode == "true" else False
-    pamela.mergeMode = True if merge_mode == "true" else False
-    pamela.evaluationMode = EvaluationMode.TIME
-    event_types = pamela.event_types_filter
-    resp = pamela.search_models(event_types, selected_pattern_ids, minimal_support)
-    #pamela.save_evaluation()
-    #pamela.save_split_evaluation()
-    #pamela.visualize_global_scores()
-    #pamela.visualize_splits()
-    pamela.save()
-    #resp = pamela.get_model_response()
-    return resp
 
 @app.route('/search-rules', methods=['GET', 'POST'])
 @cross_origin()
@@ -187,26 +168,18 @@ def searchRules():
     pamela.maxSplitRecursionDepth = 1
     event_types = pamela.event_types_filter
     pamela.search_rules(event_types, selected_pattern_ids, target_pattern_description, max_rule_ante_length, min_rule_ante_support)
+    pamela.save_rules_zip(event_types)
     pamela.save()
     return Response.get(True)
 
-
-@app.route('/get-model', methods=['GET','POST'])
+@app.route('/download-rules', methods=['GET','POST'])
 @cross_origin()
-def get_model():
+def download_rules():
     session_key = request.args.get('session-key')
     session['session_key'] = session_key
     pamela: PatternMiningManager = PatternMiningManager.load()
-    body = request.get_json()
-    event_type = body["event-type"]
-    object_types = body["object-types"]
-    resp = pamela.get_model_response(event_type, object_types)
-    return resp
-
-@app.route('/get-rules', methods=['GET','POST'])
-@cross_origin()
-def get_rules():
-    raise NotImplementedError()
+    zipped_rules_path = pamela.get_zipped_rules_path()
+    return send_file(zipped_rules_path, as_attachment=True)
 
 
 if __name__ == '__main__':

@@ -4,6 +4,7 @@ import { UploadResponse } from './dtos/upload-response';
 import { PatternType, SearchPlans } from './dtos/search_plans';
 import { EventType, ObjectType, PatternID } from './dtos/utils';
 import { ModelEvaluation } from './dtos/model-response';
+import { PrefixesLookup } from './dtos/prefixes_lookup';
 
 @Component({
   selector: 'app-root',
@@ -40,6 +41,8 @@ export class AppComponent {
   modelEvaluations: { [eventType: EventType]: ModelEvaluation} = {}
   minSupport: number = 0;
   isEBNFBoxVisible: boolean = false;
+  maxAttrLabels: number = 20;
+  variableTypePrefices: string = "undefined";
 
   constructor(
     private apiService: ApiService
@@ -82,10 +85,14 @@ export class AppComponent {
     if (!this.sessionKey) {
       return
     }
-    this.apiService.loadSearchPlans(this.sessionKey).subscribe((resp: SearchPlans) => {
+    let session_key = this.sessionKey
+    this.apiService.loadSearchPlans(session_key, this.maxAttrLabels).subscribe((resp: SearchPlans) => {
       this.searchPlans = JSON.parse(JSON.stringify(resp))
       this.filteredSearchPlans = JSON.parse(JSON.stringify(resp))
       this.searchPlansLoaded = true
+      this.apiService.getPrefixesLookup(session_key).subscribe((resp: any) => {
+        this.variableTypePrefices = JSON.stringify(resp)
+      })
     })
   }
 
@@ -213,6 +220,19 @@ export class AppComponent {
 
   toggleEBNFBox() {
     this.isEBNFBoxVisible = !this.isEBNFBoxVisible; // Toggle the visibility of the textbox
+  }
+
+  downloadRules() {
+    if (!this.sessionKey){
+      return
+    }
+    return this.apiService.downloadRules(this.sessionKey).subscribe(data => {
+      const blob = new Blob([data], {
+        type: 'application/zip'
+      });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url);
+    });
   }
 
 }

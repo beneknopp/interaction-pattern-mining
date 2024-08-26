@@ -37,8 +37,13 @@ export class ApiService {
     return this.http.get<any>(this.backendUrl + '/load-tables?session-key=' + session_key)
   }
 
-  loadSearchPlans(session_key: string) {
-    return this.http.get<any>(this.backendUrl + '/search-plans?session-key=' + session_key)
+  loadSearchPlans(session_key: string, max_attr_labels: number) {
+    return this.http.get<any>(this.backendUrl + '/search-plans?session-key=' + session_key 
+      + '&max-attr-labels=' + max_attr_labels)
+  }
+
+  getPrefixesLookup(session_key: string){
+    return this.http.get<any>(this.backendUrl + '/variable-prefixes-lookup?session-key=' + session_key)
   }
 
   registerCustomPattern(session_key: string, editedEventType: string, customPatternDescription: string) {
@@ -84,8 +89,12 @@ export class ApiService {
     return this.http.post<any>(this.backendUrl + 'get-model?session-key=' + session_key, body, { headers })
   }
 
-  getFilteredRules(session_key:string, split_pattern_ids: string[], event_type: EventType, object_types: ObjectType[]) {
-      throw NotFoundError
+  downloadRules(session_key: string) {
+    return this.http.get(
+      this.backendUrl + '/download-rules?session-key=' + session_key, {
+      responseType: 'arraybuffer'
+    });
   }
+
 
 }

@@ -17,18 +17,16 @@ class PatternParser:
         self.formula = None
 
     def parse(self, pattern_id: str) -> bool:
-        #try:
         formula = self.__parse_recursively(pattern_id)
         self.formula = formula
-        #except AssertionError:
-        #    return False
         return formula.is_well_formed()
 
     def __parse_recursively(self, pattern_id: str):
         operator_id = pattern_id[:pattern_id.index("(")]
         if operator_id in ["ex", "all"]:
             variable = pattern_id[pattern_id.index("(")+1:pattern_id.index(",")]
-            object_type = self.variable_type_lookup[variable]
+            variable_type_prefix = "".join(filter(lambda char: not char.isdigit(), variable))
+            object_type = self.variable_type_lookup[variable_type_prefix]
             inner_pattern_id = pattern_id[pattern_id.index(",")+1:-1]
             inner_formula = self.__parse_recursively(inner_pattern_id)
             if operator_id == "ex":
@@ -36,7 +34,6 @@ class PatternParser:
             return UniversalPattern(ObjectVariableArgument(object_type, variable), inner_formula)
         if operator_id in ["and", "or"]:
             outer_open_index = pattern_id.index("(")
-            #outer_closing_index = self.__find_closing_bracket_index(pattern_id, outer_open_index)
             first_formula_open_index = pattern_id[outer_open_index+1:].index("(")
             first_formula_closing_index = self.__find_closing_bracket_index(pattern_id, first_formula_open_index)
             second_formula_open_index = pattern_id[first_formula_closing_index+1:].index("(")

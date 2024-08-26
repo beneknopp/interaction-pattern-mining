@@ -14,6 +14,7 @@ from pm4py import OCEL
 
 import os
 import pickle
+import zipfile
 
 import pandas as pd
 
@@ -145,20 +146,6 @@ class PatternMiningManager:
             object_changes["ocel:timestamp"] = pd.to_datetime(object_changes["ocel:timestamp"].dt.tz_localize(None))
         except:
             pass
-
-    def visualize_base_table_creation_eval(self):
-        base_table_eval = pd.DataFrame(self.base_table_evaluation)
-        scatter_plot = sns.scatterplot(x='number_of_events', y='number_of_relation_types', hue='time',
-                                       data=base_table_eval,
-                                       palette='gray_r', edgecolor='k', linewidth=1)
-        # cbar = plt.colorbar(scatter_plot.get_children()[0], label='Z Range')
-        plt.xlabel('Number of events')
-        plt.ylabel('Number of relationship types')
-        plt.title('Runtimes for Auxiliary Table Creation')
-        path = get_session_path()
-        path = os.path.join(path, "eval_base_table_creation" + ".png")
-        plt.savefig(path)
-        plt.clf()
 
     def save_evaluation(self):
         eval = pd.DataFrame(self.evaluation_records)
@@ -571,15 +558,6 @@ class PatternMiningManager:
 
     def load_tables(self, event_types):
         self.table_managers = {}
-        self.base_table_creation_times = {}
-        self.base_table_evaluation = {
-            "event_type": [],
-            "number_of_events": [],
-            "number_of_objects": [],
-            "number_of_object_to_object_relations": [],
-            "number_of_event_to_object_relations": [],
-            "time": []
-        }
         for i in range(len(event_types)):
             event_type = event_types[i]
             event_object_types = self.event_types_object_types[event_type]
@@ -593,21 +571,6 @@ class PatternMiningManager:
             runtime = end - start
             print("Finished loading auxiliary tables for event type '" + event_type + "', " + str(i + 1) + "/" + str(
                 len(event_types)) + ", time: " + str(runtime))
-            number_of_event_to_object_relations = 0
-            for object_type in self.event_types_object_types[event_type]:
-                number_of_event_to_object_relations += len(table_manager.get_event_objects(object_type))
-            number_of_object_to_object_relations = len(table_manager.get_object_interaction_table())
-            number_of_events = len(table_manager.get_event_index())
-            self.base_table_creation_times[event_type] = runtime
-            self.base_table_evaluation["event_type"].append(event_type)
-            self.base_table_evaluation["number_of_events"].append(number_of_events)
-            self.base_table_evaluation["number_of_objects"].append(
-                len(set(table_manager.get_object_evolutions_table()["ocel:oid"].values)))
-            self.base_table_evaluation["number_of_event_to_object_relations"].append(
-                number_of_event_to_object_relations)
-            self.base_table_evaluation["number_of_object_to_object_relations"].append(
-                number_of_object_to_object_relations)
-            self.base_table_evaluation["time"].append(runtime)
 
     def __configure_search(self, selected_pattern_ids):
         for event_type, event_type_patterns in selected_pattern_ids["patterns"].items():
@@ -645,12 +608,17 @@ class PatternMiningManager:
         searched_basic_patterns = deepcopy(self.searched_basic_patterns)
         searched_interaction_patterns = deepcopy(self.searched_interaction_patterns)
         custom_patterns = deepcopy(self.custom_patterns)
+        self.zipped_rules_names = {}
         self.__configure_search(selected_pattern_ids)
         self.__make_base_tables(event_types)
         self.__search_rules(event_types, target_pattern_description, max_rule_ante_length, min_rule_ante_support)
         self.searched_basic_patterns = searched_basic_patterns
         self.searched_interaction_patterns = searched_interaction_patterns
         self.custom_patterns = custom_patterns
+
+    def save_rules_zip(self, event_types):
+        self.__zip_rules(event_types)
+        self.zipped_rules_names = {}
 
     def __make_base_tables(self, event_types):
         self.base_tables = {}
@@ -661,9 +629,6 @@ class PatternMiningManager:
                 len(event_types)) + ".")
             table_manager = self.table_managers[event_type]
             base_table = self.__make_bootstrap_table(event_type, table_manager)
-            #if len(base_table.columns) > self.maxInitialPatterns:
-            #    raise RuntimeError("More bootstrap patterns found than allowed by the 'max_initial_patterns' "
-            #                       "parameter.")
             if self.mergeMode:
                 base_table = self.__merge_interaction_patterns(event_type, base_table, table_manager)
             if self.complementaryMode:
@@ -694,19 +659,26 @@ class PatternMiningManager:
             resp["model_evaluations"][event_type] = eval
         return resp
 
+    def __zip_rules(self, event_types):
+        from os import path
+        from zipfile import ZipFile
+        rules_path = get_session_path()
+        output_zip_path = rules_path + "/rules.zip"
+        et_paths = self.zipped_rules_names.values()
+        with ZipFile(output_zip_path, 'w') as zipObj:
+            for et_path in et_paths:
+                zipObj.write(et_path, path.basename(path.normpath(et_path)))
+        self.zipped_rules_path = output_zip_path
+
     def __search_rules(self, event_types, target_pattern_description, max_rule_ante_length, min_rule_ante_support):
         for event_type in event_types:
             self.__make_rules(event_type, target_pattern_description, max_rule_ante_length, min_rule_ante_support)
 
     def __make_rules(self, event_type, target_pattern_description, max_rule_ante_length, min_rule_ante_support):
         base_table = self.base_tables[event_type]
+        if min_rule_ante_support == 0:
+            min_rule_ante_support = 1/len(base_table)
         n = len(base_table)
-        allowed = [
-            # .... descriptive patterns ...
-            'ex(De,oaval_eq_{OnTime,False}(De))',
-        ]
-        # comment in if filter "allowed" active
-        #base_table = base_table.drop(columns=[x for x in base_table.columns if x not in allowed])
         target_pattern_prevalence = (base_table[target_pattern_description] == True).sum() / n
         from mlxtend.frequent_patterns import apriori, association_rules
         base_table_target_pattern = base_table[:]
@@ -731,6 +703,7 @@ class PatternMiningManager:
             rules_target_pattern.sort_values(by=["lift", "event_count_antecedent"], ascending=[False, True], inplace=True)
             rule_path = os.path.join(path, friendly_event_type_string + "rules_" + target_pattern_description + "_" + session_key_str + ".xlsx")
             rules_target_pattern.to_excel(rule_path)
+            self.zipped_rules_names[event_type] = rule_path
 
     def __make_bootstrap_table(self, event_type: str, table_manager: TableManager) -> DataFrame:
         basic_patterns = self.searched_basic_patterns[event_type]
@@ -986,20 +959,6 @@ class PatternMiningManager:
                     del creates[str(old_merged_index)]
         return creates, deletes
 
-    def save_base_table_evaluation(self):
-        base_table_eval = pd.DataFrame(self.base_table_evaluation)
-        path = get_session_path()
-        session_key_str = session.get("session_key", "???")
-        eval_path = os.path.join(path, "base_table_evaluation_" + session_key_str + ".xlsx")
-        base_table_eval.to_excel(eval_path)
-        config_str = "maxInitialPatterns: " + str(self.maxInitialPatterns) + "\n"
-        config_str += "maxBootstrapPatternMergeRecursion: " + str(self.maxBootstrapPatternMergeRecursion) + "\n"
-        config_str += "complementaryMode: " + str(self.complementaryMode) + "\n"
-        config_str += "mergeMode: " + str(self.mergeMode) + "\n"
-        eval_config_path = os.path.join(path, "base_table_eval_config_" + session_key_str + ".txt")
-        with open(eval_config_path, "w") as wf:
-            wf.write(config_str)
-
     def visualize_global_scores(self):
         eval_df = pd.DataFrame(self.evaluation_records)
         for event_type in self.event_types_filter:
@@ -1146,4 +1105,7 @@ class PatternMiningManager:
 
     def __get_formula_TeX(self, p: PatternFormula):
         return "$$\\mathit{" + p.to_TeX() + "}$$"
+
+    def get_zipped_rules_path(self):
+        return self.zipped_rules_path
 

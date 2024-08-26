@@ -117,7 +117,7 @@ def load_ocel(file_path, filters=None, acts=None, seed_type= None, seed_objects=
     EVENTS = EVENTS.drop(columns=[event_id])
     EVENTS = EVENTS.drop_duplicates()
     
-    etypes = sorted(pandas_utils.format_unique(EVENTS["ocel_type"].unique()))
+    etypes = sorted((EVENTS["ocel_type"].unique()))
     if acts is not None: 
         etypes = [act for act in etypes if act in acts]
     otypes = sorted(pandas_utils.format_unique(OBJECTS["ocel_type"].unique()))
