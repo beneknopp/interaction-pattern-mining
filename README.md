@@ -1,4 +1,3 @@
-***Note to reviewers**: Please, kindly consider the latest state of the repository (26-08-2024).*
 
 # OX Miner
 Mining Interaction Patterns from Object-Centric Event Logs.
